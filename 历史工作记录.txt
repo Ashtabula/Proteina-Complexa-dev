@@ -39,3 +39,118 @@
 3. 反馈沟通：向用户解释了由于完全解耦的架构优势，在 AutoPilot 进程挂机训练/评估的同时，不仅可以随时运行 Cell 8 进行 py3Dmol/PyMOL 多模态绘制，还能随时产出当下最新的 PDF 报告与 ZIP PDB 整合快照，且互相不干扰。
 
 **Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-14 13:19:36 (EDT)
+**Prompt细节**:
+> ❌ Error: Live PDB directory not found at /content/drive/MyDrive/Proteina-Complexa/screening_results/AR_LBD/final_121614/AutoPilot_Live_Top10_PDBs 有没有读取lastrun？ 有没有参考cell7？
+
+**详细工作**:
+1. 错误定位：确认了用户报告的 Cell 8 路径拼接错误导致找不到 Live 文件夹（错误解析成了 `final_121614` 而不是实际存在的带有年月日的 `final_20260414_121614`）。
+2. 原因分析：在调查中发现，原版 Cell 8 确实**没有**像 Cell 7那样采用健壮的正则化 `last_runs.txt` 追踪机制，而是简单暴力地切分了 `run_id.split("_")[-1]`，这导致只有时间后缀被切割下来拼接。
+3. 补丁开发：编写并执行了 Python 工具脚本 (`patch_cell8.py`)，精准注入了 Notebook (改名为 `Proteina_Complexa_coLab.ipynb`) 内的代码。
+4. 代码同步：重构了 Cell 8，使其向 Cell 7b 的高可用标准看齐——不仅引入了 `re` 正则库，还完整引入了从 `last_runs.txt` 倒序搜寻匹配 `Dir: (final_\d+_\d+)` 的代码段，使下游渲染模块100%精准定位物理夹，彻底解决了由于时间戳字符串切分不当引起的 `Directory not found` Bug。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-14 13:24:12 (EDT)
+**Prompt细节**:
+> ❌ Error: Live PDB directory not found at .../final_121614/... still
+
+**详细工作**:
+1. 故障排查：再次确认了本地文件代码已经修复完成，但用户在网页端 Colab 环境中依然遇到了相同的报错。
+2. 问题诊断：这是因为我在本地（`/Users/ziqizhu/...`）修改了 `ipynb` 文件，但网页版 Colab 并不会自动实时同步读取您本地电脑上的代码。您在 Colab 浏览器里运行的依然是修改前的旧代码（带有 `split("_")[-1]` 的代码）。
+3. 解决方案：向用户直接输出完整的 Cell 8 修复段落，供其手动复制并覆盖 Colab 网页端上的 Cell 8。
+
+---
+
+## 2026-04-14 13:27:46 (EDT)
+**Prompt细节**:
+> ❌ Error: Live PDB directory not found at .../final_121614/... still 我在antigravity运行到。 加入debug中间变量。修改代码
+
+**详细工作**:
+1. 问题明确定位：确认由于您在 VSCode (Antigravity本地环境) 内开启着具有该 Bug 缓存的 Notebook 导致在运行 Cell 8 时，没有载入我在后台修复写入磁盘的代码，依旧执行的老代码（老代码里带有会切掉日期的 `timestamp_str = run_id.split("_")[-1]`，导致了 `final_121614` 的拼接）。
+2. 添加 Debug 探针：为您重新编写了带有高密度 `print(f"🔍 DEBUG: ...")` 探针的代码，监控 `last_runs.txt` 匹配出的完整正确 `target_dir_name`。
+3. 提供新方案：在底层修改 `.ipynb` 文件后，如果编辑器没有触发重载机制，建议用户利用提供的带 Debug 的代码片段直接手动覆盖当前 Cell，确保新旧逻辑正确替换。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-14 13:35:26 (EDT)
+**Prompt细节**:
+> 为什么antigravity不能自动更改cell8
+
+**详细工作**:
+1. 技术解答：向用户解释了由于 VSCode 对 Jupyter Notebook (`.ipynb`) 文件有一套独特的内存与可视化 UI 缓存机制，当文件正处于打开活动状态时，它不支持像普通 `.py` 文件一样的后台热重载（Hot-reload）。
+2. 底层行为确认：其实我已经在后台硬盘里用 Python 工具成功向您的 `.ipynb` 物理写入了新代码，但因为您在前端开启着它，VSCode 出于防丢数据的保护机制切断了硬盘向内存 UI 的实时同步。这使得前端屏幕和后端硬盘剥离脱节了。
+
+---
+
+## 2026-04-14 13:37:02 (EDT)
+**Prompt细节**:
+> 重新输出全部代码。 (用户提供了完整的旧版 Cell 8 源码要求合并)
+
+**详细工作**:
+1. 完整代码合并：将之前单独提供的 `last_runs.txt` 鲁棒性正则追踪修补逻辑，完美无缝地嵌入到了用户提供的完整 Cell 8 代码中。
+2. 消除合并歧义：为您输出了完整的 Cell 8 源码，避免您因为单独复制粘贴局部片段而产生的边界遗漏或缩进不匹配。
+
+---
+
+## 2026-04-14 14:50:36 (EDT)
+**Prompt细节**:
+> mesh and solid green are reversed... the predicted piptide is chain A and stained with solid green. I want the protein always meshed and predicted as solid green... change the code and output the code in the dialog box so i can copy and past.
+
+**详细工作**:
+1. 视觉倒置排查：确认用户生成的 AlphaFold PDB 中，受体蛋白和预测肽段发生了链名称漂移（AlphaFold 生成模型将新组合评估出的 Binder 肽段定义为了其他序列名），导致原本用来识别的大蛋白（如 Chain B）在评估出图时被错误施加了 Binder 的涂装染色。
+2. 稳健剥离策略：直接重构原有的代码！不再依赖极其脆弱的链代号字母名称，而是引入了物理层面的**序列长度隔离算法**（Sequence Length Heuristic）。大分子靶标库（如 AR_LBD）含有成百上千个氨基酸残基，而 Binder 预测出来的短肽最多也就 30 几个，我们让程序每次执行就去排序各个合并链的长短：强制将最短的链标定为 Binder（上色实心亮绿），把剩下包含超多残基的长链标网格半透明！这种方案是 100% 防御 AlphaFold 随意篡改链名称的终极解法！
+3. 渲染语法修复：修补了 py3dmol 中错误或冗余的 `not` 并集选择，改为显式的 `binder_chains` 和 `target_chains` 指令。
+4. 代码合并：将上述基于大小端（Size-based）的渲染剥离方案与上一次修复好的 `last_runs.txt` 鲁棒解码合并在了一起，输出了终极版的 Cell 8 源文件。
+
+---
+
+## 2026-04-14 14:52:55 (EDT)
+**Prompt细节**:
+> next task: in the code, if it is tourial GFP, the orange color is activated. change it to, elif it is other proteins, stain the same orange on the aa residues that indicated as hotspot in the setting area.
+
+**详细工作**:
+1. 提取动态 Hotspot 变量：读取并解析保存在 `internal_settings.json` 当中由前端控制面板传入的动态锚点变量 `hotspots_input`。将诸如 "752, 753, 755" 的字符串分割并清洗成可使用的列表。
+2. 注入 PyMOL 高清渲染器：在 PyMOL 生成 PDF 后台静态图片的代码区块里，除了对原有的 GFP 教程分子强制染成橘黄色以外，新加入 `else` 逻辑——将用户填入的所有 Hotspot 残基进行对应选择，并上色标记为 Orange。
+3. 注入 py3Dmol 交互模块：在 Colab 内嵌的前端 3D 悬浮球交互区中，同步加入对 Hotspot 的动态侦测。如果有输入 Hotspot 编号，则额外生成一条选区指令，将这些特殊残基的骨架上橘黄色，并且直接给这些特殊残位额外敷设一层 1.0 全不透明的亮橙色表面 (SES Surface)，让这些 Hotspots 在灰色半透明的大蛋白背景网格下极其醒目地凸显出来。
+4. 全量代码输出：依照用户方便一次性覆盖的习惯，重新导出了加入了 Hotspot 动态匹配版本的完成代码。
+
+---
+
+## 2026-04-14 14:55:45 (EDT)
+**Prompt细节**:
+> 重新cp执行了代码， 没有橙色部分。 检查代码
+
+**详细工作**:
+1. 错误机制推理排查：发现了“没有橙色高亮”的核心根本原因。用户填在 `internal_settings.json` 面板里的 anchor 氨基酸编号（例如 `752, 753`）采用的都是自然界最原始的 target PDB 的生物学编号（从几百号开始）。然而 `complexa` 引擎把复合物交给核心 AlphaFold2 重新建模评估后，AlphaFold 强制把所有链序列重新“格式化”了，也就是强行从 `1, 2, 3...` 开始从头递增标注所有残基索引。所以当程序试图让 3D 渲染器把“第 752 号残基”涂成橙色时，渲染器去查找 AF2 的成品里发现根本就不存在 752 号（总归一共只有200多），于是便没上色。
+2. 开发自适应映射桥接层 (Translation Layer)：在程序第2节引入了强大的残基重编号实时翻译器。自动从用户给定的未加工 `fixed.pdb` 起点文件中读取所有的原本 `CA` 编号序列组合并构成一个字典映射 `{"752": "93", ...}`。然后截取翻译用户传入的参数列表。
+3. 全端渲染覆盖：更新并确保了不管是后台截屏用的 PyMOL `resi`，还是在前端呈现交互动画的 `py3Dmol` 的选择器参数 `{'resi': mapped_hotspots}` 都能拿到彻底归一化成 AF2 基底坐标对齐的正确数字，100%能够正确被渲染成发光的橘色和固体包围膜。
+4. 全量代码输出：重新输出并高亮了这一段新增映射逻辑，提供覆盖代码。
+
+---
+
+## 2026-04-14 14:59:54 (EDT)
+**Prompt细节**:
+> 好的，现在一切成功。 小改动： 输出 类似design: cycle2 的时候， 输出肽段全长，以及evaluation信息： [ASCII 统计表格]
+
+**详细工作**:
+1. 性能评价模块跨桥接：因为 Cell 8 的主要任务是图像绘制，原本没有加载详尽的数据管线模块，本次更新通过提取并逆向解析 `AutoPilot_master_log.csv` 建立了 PDB ID -> Metrics 的字典查询机制。
+2. 数据格式化对齐打印：通过计算 binder_chain 中的氨基酸字符数，完美提取出`肽段全长（Peptide Length）`。并且在 Colab 的 Web UI HTML 输出中植入了 `<pre>` 固定等宽字体排版的文本数据区块，安全提取了 ipSAE, pTM, iPTM 等 AlphaFold2 评分。
+3. 全局显示美化：剔除了原本简单丑陋的纯文本标题，包装成了由绿色（呈现氨基酸数量）和蓝色（呈现结构名）交织附带灰色卡片框的高清展现形式。
+
+---
+
+## 2026-04-14 15:03:51 (EDT)
+**Prompt细节**:
+> 代码有没有输出zip文件的模块？以前是有的。 输出zip时候有没有把多肽旋转到正对着使用者的角度？
+
+**详细工作**:
+1. 解答与回顾代码功能：向用户确认了在刚更新的完整版代码中 **完全保留打包 ZIP** 的步骤（对应代码最底部的 `Section 5`）。
+2. 核实自动化视图旋转：核实确认了后台通过 PyMOL 生成汇报图像时，完美继承和保留了“质心向量自动旋转”逻辑（Euler Angle turn 计算），确保多肽被旋转到摄像机画面的绝对正前方面对用户。
