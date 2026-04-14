@@ -1,0 +1,75 @@
+<a href="https://colab.research.google.com/github/Geauga/Proteina-Complexa-dev/blob/main/coLab/Latest_Proteina_Complexa_coLab.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
+#  # Section 0: User Quick Start README & Global Configuration (State Saved; Re-run Optional After Restart)
+
+<details>
+<summary><font size="5"><b>⚙️ Expand It: User Quick Start README & Global Configuration</b></font></summary>
+
+<br>
+
+### 💡 ARCHITECTURE OVERVIEW
+This notebook employs a decoupled "Front-end UI / Back-end Engine" architecture. Please read this quick start guide and configure all parameters exclusively within the **Section 0** dashboard. This centralized panel persists your configuration data to Google Drive, ensuring seamless execution even across kernel restarts.
+
+### 🛑 CRITICAL NOTICE: MANDATORY KERNEL RESTART
+After completing **Section 1** (Environment Configuration), a Colab runtime restart is **strictly required** to apply core library upgrades (JAX/Flax/CUDA).
+**ACTION:** Navigate to `Runtime -> Restart session` from the menu, and then **run Section 1 again**. Failure to do so will cause the pipeline to terminate with an error.
+
+### 📦 ZERO-CONFIGURATION ASSETS
+Demonstration protein structures (`GFP_1_10.pdb` and `GFP_11.pdb`) are pre-integrated.
+* **Custom Targets:** Upload your PDB files to the `Proteina-Complexa/targets/` directory on Google Drive, or use the integrated upload toggle in Section 0.
+* **Configuration:** After uploading, ensure you update the `task_name` and `pdb_file_name` in Section 0 accordingly.
+
+---
+
+### 🎛️ PARAMETER GLOSSARY (Section 0 Dashboard)
+Before running the pipeline, configure the following variables in the UI panel:
+
+**Global & Session Management**
+* `task_name`: A unique identifier prefix for your current project (e.g., `POR_Attention`). All output folders will be grouped under this name.
+* `target_chains`: The specific chain ID(s) (e.g., `A`) on the target protein you want the AI to analyze.
+* `RESUME_LAST_SESSION`: Toggle **ON** to inherit the previous `run_id`. This prevents overwriting and safely appends new generated structures to existing checkpoint directories if your session was disconnected.
+
+**Auto-Pilot Generation Config (Section 4)**
+* `hotspots_input`: A comma-separated list of critical residue indices on the target protein. The AI will strictly force the generated binder to interact with these specific positions.
+* `binder_length_min` / `max`: The acceptable length range (number of amino acids) for the generated binder peptide.
+* `target_threshold`: The minimum binding score (`max_ipSAE`) required to classify a generated structure as a "success".
+* `target_success_count`: The Auto-Pilot loop will automatically halt once it accumulates this number of successful designs.
+* `max_iterations`: The absolute maximum number of generation cycles the Auto-Pilot will execute, acting as a failsafe to prevent infinite loops.
+
+**Geometric Surface Scanning Config (GeoScan - Section 6)**
+* `anchor_residues`: A set of starting residue indices used as the geometric center to map the target's surface.
+* `global_search_boundary` (Å): The **Macro Search Zone**. Defines the maximum outward expansion limit from the anchors. A larger value forces the algorithm to explore a wider, more distant surface area for candidate patches.
+* `local_interaction_radius` (Å): The **Micro Design Canvas**. Determines the physical size of the binding interface fed to the AI for a single generation task. A larger radius provides the neural network with a broader structural context, resulting in bulkier binders.
+* `designs_per_patch`: The number of stochastic designs the AI will generate for each isolated local patch coordinate.
+
+---
+### 🔄 EXECUTION WORKFLOWS
+
+**Phase I: Universal Initialization**
+1.  **Hardware Requirements & Pre-check:**
+    * **Storage:** At least 20GB of free space on Google Drive is recommended; 30GB+ is required if localizing program initialization data to accelerate startup.
+    * **GPU:** A minimum of L4 GPU runtime is required. For longer protein chains with high VRAM usage, A100 runtime is needed. *Note: The GFP tutorial can be completed using L4 runtime with default settings.*
+2.  **Read & Configure:** Review these guidelines and adjust all parameters (Auto-Pilot, Standard, Geometric Scanning) in the **Section 0** UI dashboard. Execute the cell to register the variables persistently.
+3.  **Environment Initialization:** Execute **Section 1**.
+    * *Note:* Initial compilation and asset synchronization take approximately 10–20 minutes. Enabling Google Drive persistent backup (~10GB) is recommended, allowing subsequent runs to skip this stage even if the session is reset.
+4.  **Restart Session & Verification:** Perform `Runtime -> Restart session`. **You must re-run Section 1 after the restart** (re-running Section 0 is optional).
+5.  **Target Pre-processing:** Expand and execute **Section 2** to parse and prepare the target structure.
+
+**Phase II: Divergent Execution Pathways**
+* **Section 3: GFP Tutorial.** The system automatically scans the surface of Split-GFP subunit 1 to identify the subunit 2 binding groove. It then calls the `Proteina_Complexa` evaluation module to generate the complex, providing baseline data for the natural peptide and 3D structural models of the complex.
+* **Section 4: High-Throughput Auto-Pilot.** Continuously generates, evaluates, and logs candidates until a predefined **success threshold** is met. Default is set to screen for subunit 1 binding peptides; users can upload or specify their target protein in the Section 0 panel.
+* **Section 5: Targeted Surface Screening.** Screens for the hotspots with the strongest binding affinity on the target protein's surface and their corresponding peptides. Default is set to screen for subunit 1 binding peptides; users can upload or specify their target protein in the Section 0 panel.
+
+</details>
+
+# Section 1: Environment Configuration & Dependency Management (Run All 4 Cells, Then Restart Session)
+
+# Section 2: Target PDB Parsing & Structural Pre-processing
+
+# Section 3: Split-GFP Tutorial — Natural Baseline Evaluation & Complex Generation
+
+# Section 4: Threshold-Driven Autonomous Screening
+
+# Section 5: Surface Scanning & Hotspot Targeted Screening
+
+# ⚠️ CRITICAL: Irreversible Environment Eradication & Total Data Purge. Back up Data Before Execution.

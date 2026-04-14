@@ -1,0 +1,16 @@
+1412:master_log_path = final_dir / f"{run_id}_AutoPilot_master_log.csv"
+1413:LIVE_PDB_DIR = final_dir / 'AutoPilot_Live_Top10_PDBs'
+1423:SESSION_NAME = f"AutoPilot_{task_name}_{SESSION_TIMESTAMP}"
+1665:    with open(final_dir / f'AutoPilot_{task_name}_top_hits_manifest.json', 'w') as f:
+1668:    print(f"🔄 Live AutoPilot_{task_name}_top_hits_manifest.json and Live PDB directory synchronized in {final_dir.name}")
+1706:    shutil.copy2(master_log_path, final_dir / f'{task_name}_AutoPilot_prediction_results.csv')
+1708:print(f"✅ Prediction results synced as {task_name}_AutoPilot_prediction_results.csv in: {final_dir.relative_to(BASE_DIR)}")
+1724:# Requirement: Load top designs directly from the AutoPilot live staging directory. Execute PyMOL temporary rendering strictly within /content/ local storage. Implement geometric auto-rotation. Consolidate PDBs, Prediction CSV, Master Log CSV, PDF, and parameter configuration files (JSON/YAML) into a single ZIP archive.
+1790:LIVE_PDB_DIR = latest_final / 'AutoPilot_Live_Top10_PDBs'
+1817:bundle_name = f"{task_name}_{timestamp_str}_autopilot"
+1920:pred_csv = latest_final / f"{task_name}_AutoPilot_prediction_results.csv"
+1924:master_log_name = f"{run_id}_AutoPilot_master_log.csv"
+1953:# Upstream Code: AutoPilot pipeline generated files in the isolated final_[timestamp] directory.
+1964:# Update Requirement: Refactor architecture to consume physical structures directly from the `AutoPilot_Live_Top10_PDBs` staging directory. Eliminate all legacy CSV parsing and manifest JSON dependencies.
+2009:LIVE_PDB_DIR = latest_final / 'AutoPilot_Live_Top10_PDBs'
+2559:# Upstream Code: Architected to align with the identical namespace separation protocols established for Cell_7b (AutoPilot) and initialized by Section 2.
