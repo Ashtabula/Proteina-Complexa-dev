@@ -1,0 +1,41 @@
+# 历史工作记录 (Historical Work Log)
+
+## 2026-04-14 07:51:26 ~ 08:00:00 (EDT)
+**Prompt细节**:
+用户提供了Colab上AutoPilot自动驾驶的崩溃日志。日志显示：
+- Cycle 1 正常完成，生成8个PDB并完成了评估，执行了“Buffer memory cleared”操作。
+- Cycle 2 在evaluate(评估)阶段以退出码1崩溃，并且跳过了内存清理。
+- Cycle 3 紧接着在generate(生成)阶段立即崩溃（退出码1）。
+
+**详细工作**:
+1. 分析排查：利用Python脚本提取并分析了 `coLab/Latest_Proteina_Complexa_coLab.ipynb` 的源代码。发现问题出在 `Cell_7b_Autonomous_Generation_Loop`。
+2. 根本原因：调用 complexa 设计管线在进程崩溃后，原代码 `ret_code != 0` 的异常处理块直接执行了 `continue` 进行下一轮Cycle。由于过早跳转，完全跳过了放置在循环主逻辑末尾的 `torch.cuda.empty_cache()` 和 `torch.cuda.ipc_collect()` 内存释放代码片段。这导致了 Cycle 2 死亡的子进程残存孤儿 IPC（进程间通信）显存占用，进而在 Cycle 3 启动时直接引爆显存和共享内存而秒退。
+3. 代码修复：编写Python补丁脚本精确修改了 notebook JSON 源码。在对应Cell的崩溃捕获异常体内，引发 `continue` 前安全注入了 `gc.collect()` 及其 CUDA IPC 强制回收模块。
+4. 验证与记录：从机制上解决了Colab自动管线偶发错误导致的“雪崩式连续OOM宕机”bug，大大提高了高通量生成引擎的稳健性。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-14 08:07:27 (EDT)
+**Prompt细节**:
+> 交流尽量用中文。 生成一个历史工作记录.txt，以后每次更新后除了注释，github之外， 也在历史工作记录里详细记录做了什么， 包括时间，记录下prompts的细节，采用append方式，以及push github的时间线。。现在开始生成， 把以前的补上。 然后以后的工作都要append这个log。
+
+**详细工作**:
+1. 初始化工作记录规范：接收并遵守用户的全局最新核心规范，确立后续交流默认以中文为主。
+2. 创建日志文件：在本地目录新建并生成了本文件 `历史工作记录.txt`。
+3. 补齐历史作业记录：将上一次关于修复AutoPilot Pipeline IPC显存泄漏问题的工作详述与Prompt内容，进行了归档处理和补齐。
+4. 规范确立：以后所有任务都将通过向本文件末尾写入（append）新条目来进行详细的任务和Github提交的时间线追踪。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+## 2026-04-14 10:35:52 (EDT)
+**Prompt细节**:
+> cell8是不是可以随时绘制top pdb下面的文件？
+
+**详细工作**:
+1. 架构代码分析：审阅了 `Cell_8_Top10_Complex_Visualization_Viewer_with_PDF.py` 的解耦运行机制。
+2. 答疑确认：确认了 Cell 8 并不依赖内存传递参数，而是直接读取持久化的 `internal_settings.json` 中的 `run_id` 状态，进而精准锁定 `AutoPilot_Live_Top10_PDBs` 文件夹提取实时文件。
+3. 反馈沟通：向用户解释了由于完全解耦的架构优势，在 AutoPilot 进程挂机训练/评估的同时，不仅可以随时运行 Cell 8 进行 py3Dmol/PyMOL 多模态绘制，还能随时产出当下最新的 PDF 报告与 ZIP PDB 整合快照，且互相不干扰。
+
+**Github Push Timeline**: 尚未执行 (Pending)
