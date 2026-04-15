@@ -374,3 +374,32 @@ Actions Taken:
 5. **生成分析报告**：创建了 Section 6 代码逻辑深度分析 artifact（`section6_analysis.md`），包含流程图、积分公式、逻辑流程图。
 
 **Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 12:41:21 (EDT)
+**Prompt细节**:
+> 应该加一个逻辑，如果更新hotspot以后跑了48个样，最高ipsae不如上一个iterate最高，则退回上一个版本的序列，同样踢掉最后两个位点，加入上一个iterate排行3，4的两个位点。
+
+**详细工作**:
+1. **回退保护机制设计与实现（Regression Detection & Rollback Evolution）**：
+   - 在 `active_hotspots` 初始化之后，新增全局变量 `prev_iterate_state = None`，用于保存上一次 Iterate 在演化前的快照。
+   - 快照内容包含：`active_hotspots`（演化前的热点列表），`contact_scores`（本次 Iterate 的接触积分字典），`neo_sorted`（本次 Iterate 的 neo-hotspot 候选排序列表），`best_score`（本次 Iterate 达到的最高 ipSAE）。
+
+2. **回退逻辑（Rollback Path）**：
+   - 每次 Iterate 完成 48 个设计生成和 contact_score 计算后，先计算 `current_iterate_best`。
+   - 比较条件：`prev_iterate_state is not None AND current_iterate_best < prev_iterate_state['best_score']` → 触发回退。
+   - 回退时：从 `prev_iterate_state['active_hotspots']` 出发（上一个版本的热点），按上一次的 `contact_scores` 排序，踢掉末尾 `evo_update_count` 个（最弱位点）。
+   - 使用替代 neo-hotspot：从上个 Iterate 的 `neo_sorted` 列表中，**跳过已经试过的前 `drop_count` 个**（rank 1 & 2），取下面的 `drop_count` 个（rank 3 & 4）补充进来。
+   - 回退模式下，`prev_iterate_state` 不更新（保持稳定参考基准）。
+
+3. **正常演化路径（Normal Evolution Path）**：
+   - 在进行演化操作前，先计算并保存当前快照到 `prev_iterate_state`。
+   - 正常执行：drop 末尾2个，加入 rank 1 & 2 neo-hotspot。
+   - 打印 `📸 Snapshot saved` 日志用于确认。
+
+4. **分数参考修复**：二次上限裁剪（secondary cap）统一改用 `_score_ref`，在正常路径用当前 `contact_scores`，在回退路径用 `rb_scores`（上一个 Iterate 的分数），确保裁剪依据来源正确。
+
+5. **执行了 patch 脚本** `patch_rollback_evo.py`，两个补丁均成功注入 notebook。
+
+**Github Push Timeline**: 2026-04-15 12:44 EDT — [commit: 014e3e1] feat(section6): add regression detection & rollback evolution logic → push 成功
