@@ -343,3 +343,34 @@ Actions Taken:
    - 小循环也就是生成每个批次的过程被改名为 `Round`（轮次）。所以控制台现在的输出看起来会是：`Evolution Generation [Iterate 1 - Round 1]: 0/48` 接着是 `[Iterate 1 - Round 2]: 8/48` 等。
 2. 修复了 Design 生成数量统计（“明明只有8个却增加了36个”的问题）：
    - 将强行每次给 `designs_in_current_iterate` 直接加上 `generation_batch_size` (36) 的错误逻辑修改为：实际解析得到多少个有效 PDB CSV 报告（`len(batch_designs)`），计数器就真正增加多少。现在进度条能精准匹配因为内存或配置限制导致单个批次实际输出量不足 36 的情况。
+
+---
+
+## 2026-04-15 12:35:00 (EDT)
+**Prompt细节**:
+> review我的代码，然后读section6，帮我研究一下，找出结合最弱的位点的逻辑是什么，找出新增的hotspot的逻辑又是什么。
+
+**详细工作**:
+1. **全面代码审阅**：读取了 `patch_section_6_fix.py`，`patch_evo_logic.py`，以及 Notebook 中 Cell 25（Section 6 完整实现），进行了深度代码审阅。
+
+2. **结合最弱位点的逻辑（Weak Hotspot Elimination）**：
+   - Section 6 在攒够 `evo_designs_per_loop`（默认48）个设计后，从中挑选 Top-5 PDB（可选 strict RMSD < 10Å 过滤）进行 CA 原子空间接触分析。
+   - 对每个 top-5 PDB 使用 `scipy.spatial.KDTree` 构建 binder 链的KD树，判断 target 链上每个残基的 CA 原子是否与 binder 形成 < **4.5Å** 的接触。
+   - **contact_score 积分公式**：`score += ipSAE * (1/rank)`，即排名越靠前的 PDB 贡献权重越大（rank=0 → 1.0x，rank=1 → 0.5x，...）。
+   - 对所有 `active_hotspots` 按 contact_score 排序，末尾 `evo_update_count`（默认2）个即为"结合最弱"的位点（`eliminated`），会被从 hotspot 列表中剔除。
+   - 保护机制：`drop_count = min(evo_update_count, max(0, len(active_hotspots) - 2))`，确保至少保留2个 hotspot，不会全部清空。
+
+3. **新增 Neo-Hotspot 的逻辑**：
+   - `contact_scores` 字典中包含了 top-5 PDB 里所有曾与 binder 形成接触的 target 残基（包括未在 `active_hotspots` 中的自发接触残基）。
+   - 过滤掉当前 `active_hotspots`，剩余的全部视为 `neo_hotspot` 候选。
+   - 按 contact_score 降序，取前 `drop_count`（与淘汰数量一致）个作为 `top_neo`，补充进入 hotspot 列表。
+   - 含义：AlphaFold 生成设计时"自发"与某些未指定残基形成接触，说明这些位置是模型认为有利的结合点，将其强制纳入 hotspot 可以引导后续设计更聚焦这些位置。
+
+4. **发现的潜在问题**：
+   - **Bug：变量未定义**：Print 语句中使用了 `evolution_round`，但循环变量实为 `generation_round`，会触发 `NameError`。
+   - **Neo-Hotspot 无分数门槛**：即使 contact_score 接近 0 的候选也会被加入，建议过滤 `contact_score > 0.0` 的候选。
+   - **弱位点无绝对门槛**：当前只按相对排名淘汰末尾2个，即使所有 hotspot 都活跃也会换掉2个，可能换掉实际还不错的位点。
+
+5. **生成分析报告**：创建了 Section 6 代码逻辑深度分析 artifact（`section6_analysis.md`），包含流程图、积分公式、逻辑流程图。
+
+**Github Push Timeline**: 尚未执行 (Pending)
