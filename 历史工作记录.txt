@@ -204,3 +204,54 @@
 5. **全面渗透注入**：编写专属脚本 `patch_section0_and_6.py` 将界面改写代码块完美对齐到 Notebook json 原文对应字段进行了无痛热更新。
 
 **Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 09:16:34 (EDT)
+**Prompt细节**:
+> cell6似乎还有些问题， Initializing Automated Hotspot Evolution Engine (Section 6)...
+> ...
+> 📝 Log: logs/...generate.log  这里用的还是 cycle 1/10. 应该已经改成我们在panel 0里设置的次数才对。 另外， 加入终止scan的threshhold， 设置在panel0， 在cell18调用。
+
+**详细工作**:
+1. **修复动态参数未同步问题**：之前的代码在 Cell 18 (Section 6) 运行时读取的是之前跑出的被隔离封装的设定集。这导致用户在 Panel 0 即使修改了 `evo_max_iterations`，Section 6 没有即刻感应。通过修改使得相关的 evolution 配置优先从 `root_cfg` (全局设置) 中联动，确保 Panel 0 的更改能够立刻对 Section 6 生效，打印日志现在会如实反映面板指定的演化迭代总次数。
+2. **新增并暴露早停阈值 (evo_target_threshold)**：在 Panel 0 增加新变量 `evo_target_threshold = 0.85` 并纳入字典持久化存储。
+3. **智能截断提前退出机制**：在 Section 6 每次清洗、收集并完成该轮最佳 ipSAE 多肽的分数结算后，立即进行一次阈值碰撞。一旦最高分冲破预设线，将直接打印成功横幅并 `break` 跳出演化死循环，大幅避免后续冗余算力的浪费。
+4. **底层 JSON 节点级无损修复**：编写局域工具 `patch_section_6_fix.py`，越过 Colab 前端直接在底层完成了对 `.ipynb` 代码块的精准换药升级。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 09:22:00 (EDT)
+**Prompt细节**:
+> 要把一个batch 筛几个样放在section 0 的头部， 让section3和section6都可以调用。以防oom。 更改代码。 另外batch_size = 36 #@param {type:"integer"} designs_per_loop = 36 #@param {type:"integer"} 这两个参数有什么不同？
+
+**详细工作与参数解答**:
+**1. 参数原理解答 (batch_size vs designs_per_loop)**：
+- `designs_per_loop` (循环生成总数)：表示在这个循环周期里，你**总共**需要 AI 给你生成多少个结合肽结构的终产物。
+- `batch_size` (显存吞吐批处理量)：表示你的显卡在同一个瞬间（一个矩阵计算批次里面）并行的任务数量。
+**举例**：如果 `designs=36, batch_size=12`，系统会为了保护显存不溢出（防止OOM），老老实实把 36 个任务切分成 3 批（每批并行 12 个）去交给显卡计算。如果把 `batch_size` 设成 36，程序会试图一口气把 36 个全塞进显存同时渲染，非常容易原地爆炸 (OOM)。
+
+**2. 代码改写工作**:
+- **变量提取与置顶**：通过底层 Python 补丁，去除了原先深埋在 Section 4 (AutoPilot) 内部独立的 `batch_size`，将其统一提取到了 Section 0 面板的最前列，设立了专门的 `💻 Hardware Memory Limits (VRAM Limit)` 专区。这使得它成为了一个真正的“全局防爆限流器”。
+- **Section 3 通道打通**：在 Section 3 (GFP Baseline) 的后台代码里，原本跑 Baseline 评估的时候参数是锁死在 `batch_size=1` 的。现在我在那一段评价管线里注入了读取 `internal_settings.json` 的代码，将其替换为了 `--generation.dataloader.batch_size={batch_size}`，使得前台的 VRAM 设定也能辐射到此处。
+- **全局环境刷新**：同样利用 `patch_batch_size_fix.py` 脚本，避开 UI 热重载干扰，在后台完成了物理向外围环境和 `.ipynb` 本体的无痛更迭。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 09:29:00 (EDT)
+**Prompt细节**:
+> 不， 把评价的batch和生成的batch分开让两个cell调用，评价的batch默认是1， 评价消耗大量显存。 生成倒是不太占显存。
+
+**详细工作**:
+1. **生成与评价彻底双轨显存解耦**：完全同意你的架构考虑（评价模型如 AF2 的 Transformer 特性确实是内存杀手，不能和轻量级的生成模型混用相同的安全上限）。我在 Section 0 顶部的 `Hardware Memory Limits` 中将原本的统一参数纵向切割为了两项独立指标：
+   - `generation_batch_size = 36` (用于快速轻量级的高通量多肽生成)
+   - `evaluation_batch_size = 1` (默认设为最安全的底线 1，防止全原子评价节点把显存撑爆)
+2. **底层命令全域覆盖与分流**：编写并运行了 `patch_batch_split.py`，将 Section 3 (GFP Baseline), Section 4 (Auto-Pilot), Section 5 (Geometric Scanning), Section 6 (Auto-Evolution) 的代码逻辑彻底打通，在向底层发送参数引擎时：
+   - 生成相关的代码段落自动绑定 `++generation.dataloader.batch_size={generation_batch_size}`
+   - 包含 AlphaFold 等结构的评价管线段落，自动挂载 `++evaluation.dataloader.batch_size={evaluation_batch_size}` 从而强制将评价降维单线程处理（防止 OOM）。
+
+**Github Push Timeline**: 尚未执行 (Pending)
