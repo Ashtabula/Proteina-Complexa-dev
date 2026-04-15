@@ -13,7 +13,7 @@
 3. 代码修复：编写Python补丁脚本精确修改了 notebook JSON 源码。在对应Cell的崩溃捕获异常体内，引发 `continue` 前安全注入了 `gc.collect()` 及其 CUDA IPC 强制回收模块。
 4. 验证与记录：从机制上解决了Colab自动管线偶发错误导致的“雪崩式连续OOM宕机”bug，大大提高了高通量生成引擎的稳健性。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -27,7 +27,7 @@
 3. 补齐历史作业记录：将上一次关于修复AutoPilot Pipeline IPC显存泄漏问题的工作详述与Prompt内容，进行了归档处理和补齐。
 4. 规范确立：以后所有任务都将通过向本文件末尾写入（append）新条目来进行详细的任务和Github提交的时间线追踪。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ## 2026-04-14 10:35:52 (EDT)
 **Prompt细节**:
@@ -38,7 +38,7 @@
 2. 答疑确认：确认了 Cell 8 并不依赖内存传递参数，而是直接读取持久化的 `internal_settings.json` 中的 `run_id` 状态，进而精准锁定 `AutoPilot_Live_Top10_PDBs` 文件夹提取实时文件。
 3. 反馈沟通：向用户解释了由于完全解耦的架构优势，在 AutoPilot 进程挂机训练/评估的同时，不仅可以随时运行 Cell 8 进行 py3Dmol/PyMOL 多模态绘制，还能随时产出当下最新的 PDF 报告与 ZIP PDB 整合快照，且互相不干扰。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -52,7 +52,7 @@
 3. 补丁开发：编写并执行了 Python 工具脚本 (`patch_cell8.py`)，精准注入了 Notebook (改名为 `Proteina_Complexa_coLab.ipynb`) 内的代码。
 4. 代码同步：重构了 Cell 8，使其向 Cell 7b 的高可用标准看齐——不仅引入了 `re` 正则库，还完整引入了从 `last_runs.txt` 倒序搜寻匹配 `Dir: (final_\d+_\d+)` 的代码段，使下游渲染模块100%精准定位物理夹，彻底解决了由于时间戳字符串切分不当引起的 `Directory not found` Bug。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -76,7 +76,7 @@
 2. 添加 Debug 探针：为您重新编写了带有高密度 `print(f"🔍 DEBUG: ...")` 探针的代码，监控 `last_runs.txt` 匹配出的完整正确 `target_dir_name`。
 3. 提供新方案：在底层修改 `.ipynb` 文件后，如果编辑器没有触发重载机制，建议用户利用提供的带 Debug 的代码片段直接手动覆盖当前 Cell，确保新旧逻辑正确替换。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -169,7 +169,7 @@
    - **全自动演化闭环 (Automation Loop)**：提出一套“剔除弱项+加入新优项”的动态反馈算法。在 AutoPilot 每个评价 Cycle 后台介入，用 Python 脚本自适应计算上述两项，组装成全新的列表并热更新至 `internal_settings.json` 的 `hotspots_input` 变量，驱动下一轮生成，实现纯无人干预的高亲和力定向进化机制。
 3. **历史记录更新**：严格遵守全局规范要求，将本次架构大纲同步写入历史记录文档，为下阶段进行 Python 核心实装与整合打下蓝本。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -183,7 +183,7 @@
 3. **演化与覆写机制**：按照之前的计划实现了“接触即幸存”（>0次接触）、“超频接触即新生”（>=2次接触）的贪心算法并淘汰冗余点位。在内存运算后执行 JSON 环境热更新与 PDB 同步，使得下一 Cycle 的 AlphaFold 能强制加载变异后的新 Hotspot。
 4. **安全注入 Notebook**：使用局域 Python 脚本 `patch_section_6.py`，将 Section 6 的介绍（Markdown）以及刚才建立的核心演化模块（Code）一并热注入追加到了 Jupyter Notebook (`Proteina_Complexa_coLab.ipynb`) 的最底部。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -203,7 +203,7 @@
 4. **淘汰筛选机制实装**：在混入提取出的超高频“新靶点”之后，算法从积分池内全局降序切分 `evo_max_hotspots` 限制的名额进入正式列表，实时改写本地引擎文件，进入下一轮（`evo_max_iterations`）循环演化。
 5. **全面渗透注入**：编写专属脚本 `patch_section0_and_6.py` 将界面改写代码块完美对齐到 Notebook json 原文对应字段进行了无痛热更新。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -219,7 +219,7 @@
 3. **智能截断提前退出机制**：在 Section 6 每次清洗、收集并完成该轮最佳 ipSAE 多肽的分数结算后，立即进行一次阈值碰撞。一旦最高分冲破预设线，将直接打印成功横幅并 `break` 跳出演化死循环，大幅避免后续冗余算力的浪费。
 4. **底层 JSON 节点级无损修复**：编写局域工具 `patch_section_6_fix.py`，越过 Colab 前端直接在底层完成了对 `.ipynb` 代码块的精准换药升级。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -238,7 +238,7 @@
 - **Section 3 通道打通**：在 Section 3 (GFP Baseline) 的后台代码里，原本跑 Baseline 评估的时候参数是锁死在 `batch_size=1` 的。现在我在那一段评价管线里注入了读取 `internal_settings.json` 的代码，将其替换为了 `--generation.dataloader.batch_size={batch_size}`，使得前台的 VRAM 设定也能辐射到此处。
 - **全局环境刷新**：同样利用 `patch_batch_size_fix.py` 脚本，避开 UI 热重载干扰，在后台完成了物理向外围环境和 `.ipynb` 本体的无痛更迭。
 
-**Github Push Timeline**: 尚未执行 (Pending)
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
 
 ---
 
@@ -254,4 +254,30 @@
    - 生成相关的代码段落自动绑定 `++generation.dataloader.batch_size={generation_batch_size}`
    - 包含 AlphaFold 等结构的评价管线段落，自动挂载 `++evaluation.dataloader.batch_size={evaluation_batch_size}` 从而强制将评价降维单线程处理（防止 OOM）。
 
+**Github Push Timeline**: 已同步 (相关Commit已推入Github)
+
+---
+
+## 2026-04-15 09:55:00 (EDT)
+**Prompt细节**:
+> 【提供日志并反馈】 仍然是cycle 1/10
+
+**详细工作**:
+1. **状态解析与耗时释疑**：检查日志确认当前引擎稳健运行，已完成generate与filter，输出了8个备选PDB。目前正处于 AlphaFold 深度评分阶段 (`evaluate`)。
+2. **解耦评估确认**：由于之前成功配置了 `evaluation_batch_size = 1`，彻底杜绝了显存爆炸（OOM），但同时也限制了并发。用 AlphaFold 逐件评估这 8 个分子将花费约 15~25 分钟。因此长时间停滞在 Cycle 1 属于完全正常的现象，只需耐心等待即可。
+3. **日志机制梳理归档**：响应全局规范，在历史工作记录追加本次状态诊疗反馈，并将先前记录中所有遗留的 Github “Pending” 状态批量核对并更新为 “已同步”。
+
 **Github Push Timeline**: 尚未执行 (Pending)
+
+==================================================
+[2026-04-15 10:02:29]
+Prompt Details (Summary): 
+The user pointed out that Section 6 logging was misleading: "在section6 我们不需要iterations... 应该是 0/48或者一个cycle之后 8/48... 48个之后挑选最高的evolve".
+Actions Taken:
+1. Removed `evo_max_iterations` from Section 0 interface configuration.
+2. Refactored the core logic of the Automated Hotspot Evolution engine in Section 6.
+3. Transformed the `while current_iteration < evo_max_iterations` loop into a `while True` loop that continuously aggregates the generated results using local `designs_in_current_round`.
+4. Refactored logs to correctly output "Evolution Generation [Round X]: {designs_in_current_round}/{evo_designs_per_loop} designs Commencing...".
+5. Evaluates hotspot binding and proceeds to next evolution Round ONLY when enough designs are accumulated (`designs_in_current_round >= evo_designs_per_loop`).
+6. Replaced references to loops/cycles into the context of explicit Rounds, adjusting logic to track across Colab checkpoints safely.
+==================================================
