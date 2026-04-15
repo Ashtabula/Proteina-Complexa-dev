@@ -154,3 +154,53 @@
 **详细工作**:
 1. 解答与回顾代码功能：向用户确认了在刚更新的完整版代码中 **完全保留打包 ZIP** 的步骤（对应代码最底部的 `Section 5`）。
 2. 核实自动化视图旋转：核实确认了后台通过 PyMOL 生成汇报图像时，完美继承和保留了“质心向量自动旋转”逻辑（Euler Angle turn 计算），确保多肽被旋转到摄像机画面的绝对正前方面对用户。
+
+---
+
+## 2026-04-15 08:34:59 (EDT)
+**Prompt细节**:
+> hotspots_input = "681,682,752,754, 755, 756, 757, 758, 759, 760,763,764,766, 767" #@param {type:"string"} 我现在有一个预设的hotspot 列表。 有没有可能在生成结合肽时用什么方式评估每个hotspot的贡献率， 然后发现结合肽同蛋白表面的新结合位点， 自动演化筛选出最强的hotspot列表？
+
+**详细工作**:
+1. **理论探讨与架构解答**：向用户详细解答了在生成管线中实现“Hotspot自动演化与筛选（Automated Hotspot Evolution/Iterative Target Mapped Design）”的极高可行性与落地方案。
+2. **制定技术路线**：
+   - **贡献率评估 (Eliminate Duds)**：通过提取复合物（Complex）的三维坐标中，预设 Hotspot 残基与预测结合肽之间的距离（如 < 4.5Å的原子碰撞空间）结合局部置信度（如 PAE_inter），来量化每个已知位点的实际成键贡献。借此淘汰“占位不干活”的无效位点。
+   - **新位点发现 (Discover Neo-Hotspots)**：对生成的高评分复合物进行全蛋白表面反向扫描映射，提取那些不在预设列表内，却与结合多肽自发产生高频紧密接触（如形成强疏水核心或微缩结合口袋）的新靶标氨基酸残基。
+   - **全自动演化闭环 (Automation Loop)**：提出一套“剔除弱项+加入新优项”的动态反馈算法。在 AutoPilot 每个评价 Cycle 后台介入，用 Python 脚本自适应计算上述两项，组装成全新的列表并热更新至 `internal_settings.json` 的 `hotspots_input` 变量，驱动下一轮生成，实现纯无人干预的高亲和力定向进化机制。
+3. **历史记录更新**：严格遵守全局规范要求，将本次架构大纲同步写入历史记录文档，为下阶段进行 Python 核心实装与整合打下蓝本。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 08:44:00 (EDT)
+**Prompt细节**:
+> 复用大部分代码， 做成section6吧。我不想干扰已经能运行的section 4
+
+**详细工作**:
+1. **代码复用与模块化**：在不触碰既有稳健运行的 Section 4 (`Cell_7b`) 源码的前提下，我们完全复制了其管线打捞与排错架构，并新建了专门用于自动演化的 `Cell_18_Automated_Hotspot_Evolution_Loop.py` 模块。
+2. **空间碰撞算法实装**：在代码核心逻辑中，引入了 numpy 与 scipy 的 `KDTree` 对每一个 Cycle 生成的 top3 结果 PDB 进行全原子解析。通过自动比对出最短的多肽链（作为 Binder），计算受体表面各个残基与之是否满足 <4.5Å 的接触阈值。
+3. **演化与覆写机制**：按照之前的计划实现了“接触即幸存”（>0次接触）、“超频接触即新生”（>=2次接触）的贪心算法并淘汰冗余点位。在内存运算后执行 JSON 环境热更新与 PDB 同步，使得下一 Cycle 的 AlphaFold 能强制加载变异后的新 Hotspot。
+4. **安全注入 Notebook**：使用局域 Python 脚本 `patch_section_6.py`，将 Section 6 的介绍（Markdown）以及刚才建立的核心演化模块（Code）一并热注入追加到了 Jupyter Notebook (`Proteina_Complexa_coLab.ipynb`) 的最底部。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 08:50:45 (EDT)
+**Prompt细节**:
+> 用户提出：首选指标改成ipsae...用默认跑48个产物，然后选出最高的一个来分析新的hotspot，然后选出次高的几个分析hotspot，留下不同的hotspot aa加入列表，踢出贡献低的。 再跑48个产物，再次评估...留几个hotspot，跑几轮，每次评估更新几个hotspot， hotspot最多几个位置，都加入section0的参数列表。
+
+**详细工作**:
+1. **前端 Section 0 面板挂载**：在 `Proteina_Complexa_coLab.ipynb` (Cell 3) 面板内新增了专属的 `Auto-Evolution Target Screening` 参数区，暴露出这 4 个核心微调参数 
+   - `evo_designs_per_loop = 48`
+   - `evo_max_iterations = 10`
+   - `evo_max_hotspots = 8`
+   - `evo_update_count = 2`
+   并将这些入参深度绑定到隔离设置文件（`internal_settings.json`）当中。
+2. **核心评估指标权重替换**：在 Section 6 引擎中取消了原本硬编码的 pLDDT/iPTM 指标截断门槛，重构为完全依靠 `ipSAE` 从高到低执行绝对排名的分析器计算模式。
+3. **提取算法升级 (ipSAE-Weighted)**：引擎自动扫描 Top1，Top2，Top3 等高分多肽产生的 `<4.5Å` 原子级碰撞。每碰撞一次，靶点将会根据其对接多肽带来的 `ipSAE * (1/(排名))` 加成获得权重积分。从未产生任何触碰（积分=0）的老旧原先设定均会在本轮直接予以消除。
+4. **淘汰筛选机制实装**：在混入提取出的超高频“新靶点”之后，算法从积分池内全局降序切分 `evo_max_hotspots` 限制的名额进入正式列表，实时改写本地引擎文件，进入下一轮（`evo_max_iterations`）循环演化。
+5. **全面渗透注入**：编写专属脚本 `patch_section0_and_6.py` 将界面改写代码块完美对齐到 Notebook json 原文对应字段进行了无痛热更新。
+
+**Github Push Timeline**: 尚未执行 (Pending)
