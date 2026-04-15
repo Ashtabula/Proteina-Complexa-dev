@@ -310,3 +310,36 @@ Actions Taken:
 3. **全集群覆盖**：针对所有含有 `++run_evaluate=True` 的代码指令簇（含 Section 3 Baseline, Section 4 AutoPilot, Section 6 EvoPilot），强制串联贴附了性能爆发核心挂件：`++evaluate.num_recycles=1 ++evaluate.pad_to_max_length=True ++evaluate.use_msa=False ++evaluate.msa_mode=single_sequence`。实现 JAX 图锁定、单序列极限生成并彻底消除多次轮转延时。
 
 **Github Push Timeline**: 尚未执行 (Pending)
+
+=========================================
+Time: 2026-04-15 12:22:24
+Prompt Details: 是算法出了问题， week hotpots eliminated : eliminated all hotspots. 在48个样品拿到之前不要eliminate， 拿到之后只踢掉两个最低的， 加入两个最高的， 再48个。  排序的时候过滤掉rmsd或者不过滤， 在section0加入这一选项。 allow peptide to move or not (reword for me).
+Actions Taken:
+1. 修改了 coLab/Proteina_Complexa_coLab.ipynb 中的 Section 0：
+   - 添加了 boolean 配置项  (Strict Geometric Confinement - Filter High RMSD before Evolution Selection) 用来过滤跑偏的肽段。
+   - 配置项以变量和 JSON 形式存入持久化。
+2. 修改了 Section 6（Cell 18）的 Hotspot Evolution 机制：
+   - 添加读取  配置变量，在分析周期数据（）进行 ipSAE 加权前，如果该选项为假则跳过，如果为真，则过滤掉由于肽段飘走导致 RMSD > 10.0Å 或者计算失败的情况，确保结合位点计算准确性。
+   - 修复了 Hotspot 剔除逻辑。去除了原来无差别 Drop Score=0 的机制。修正后，在完整拿到 48 个（或设定值）设计后，会按 Score 排序 ，仅仅剔除得分最低的 N（设定为 ，默认为2）个 Hotspot，并同时补充前 N 个最高分的 ，以维持 Hotspots 数量不发生大规模随机崩塌。
+
+=========================================
+Time: 2026-04-15 12:22:39
+Prompt Details: 是算法出了问题， week hotpots eliminated : eliminated all hotspots. 在48个样品拿到之前不要eliminate， 拿到之后只踢掉两个最低的， 加入两个最高的， 再48个。  排序的时候过滤掉rmsd或者不过滤， 在section0加入这一选项。 allow peptide to move or not (reword for me).
+Actions Taken:
+1. 修改了 coLab/Proteina_Complexa_coLab.ipynb 中的 Section 0：
+   - 添加了 boolean 配置项 `evo_strict_rmsd_filter` (Strict Geometric Confinement - Filter High RMSD before Evolution Selection) 用来过滤跑偏的肽段。
+   - 配置项以变量和 JSON 形式存入持久化。
+2. 修改了 Section 6（Cell 18）的 Hotspot Evolution 机制：
+   - 添加读取 `evo_strict_rmsd_filter` 配置变量，在分析周期数据（`cycle_designs`）进行 ipSAE 加权前，如果该选项为假则跳过，如果为真，则过滤掉由于肽段飘走导致 RMSD > 10.0Å 或者计算失败的情况，确保结合位点计算准确性。
+   - 修复了 Hotspot 剔除逻辑。去除了原来无差别 Drop Score=0 的机制。修正后，在完整拿到 48 个（或设定值）设计后，会按 Score 排序 `active_hotspots`，仅仅剔除得分最低的 N（设定为 `evo_update_count`，默认为2）个 Hotspot，并同时补充前 N 个最高分的 `neo_hotspots`，以维持 Hotspots 数量不发生大规模随机崩塌。
+
+=========================================
+Time: 2026-04-15 12:26:15
+Prompt Details: 另外， 不是一个batch输出8个么， 怎么一个batch就输出了36个？我知道设置是一个batch36个，但是系统只输出了8个。 另外， 把每次踢掉2个这个大循环的名字改叫iterate x， 以避免误解 (batch n ->  round x, x*n=48 here -> evolve iterate y)
+Actions Taken:
+1. 修改了 coLab/Proteina_Complexa_coLab.ipynb 中的 Section 6 循环名：
+   - 将原来导致混淆的 `Evolution Generation [Round X]: N/48 designs` 改为了 `Evolution Generation [Iterate X - Round Y]: N/48 designs`。
+   - 大循环也就是热点演化的周期（每攒够 48 个设计演化一次）被改名为 `Iterate`（迭代）。
+   - 小循环也就是生成每个批次的过程被改名为 `Round`（轮次）。所以控制台现在的输出看起来会是：`Evolution Generation [Iterate 1 - Round 1]: 0/48` 接着是 `[Iterate 1 - Round 2]: 8/48` 等。
+2. 修复了 Design 生成数量统计（“明明只有8个却增加了36个”的问题）：
+   - 将强行每次给 `designs_in_current_iterate` 直接加上 `generation_batch_size` (36) 的错误逻辑修改为：实际解析得到多少个有效 PDB CSV 报告（`len(batch_designs)`），计数器就真正增加多少。现在进度条能精准匹配因为内存或配置限制导致单个批次实际输出量不足 36 的情况。
