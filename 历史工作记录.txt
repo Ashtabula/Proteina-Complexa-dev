@@ -403,3 +403,64 @@ Actions Taken:
 5. **执行了 patch 脚本** `patch_rollback_evo.py`，两个补丁均成功注入 notebook。
 
 **Github Push Timeline**: 2026-04-15 12:44 EDT — [commit: 014e3e1] feat(section6): add regression detection & rollback evolution logic → push 成功
+
+---
+
+## 2026-04-15 12:48:12 (EDT)
+**Prompt细节**:
+> "generation_batch_size": generation_generation_batch_size, evaluation_batch_size,
+>         "evaluation_batch_size": evaluation_generation_batch_size, evaluation_batch_size,
+>         "scan_batch_size": scan_generation_batch_size, evaluation_batch_size,  why has two variables from one key?
+
+**详细工作**:
+1. **Bug定位与原因解释**：
+   - 故障类型：Python `SyntaxError: ':' expected after dictionary key`（Colab 输出中已显示）。
+   - 根本原因：在 Section 0 的 `write_settings_to_disk()` 函数体内，字典定义中出现了类似 `"key": var1, var2,` 的写法。Python 在解析字典时，每个条目只能是 `"key": value`；而 `var1, var2` 会被解释为"多个值之间用逗号分隔"，这在字典字面量中是**非法的**（会让解释器误以为 `var2` 是下一项的 key，但 key 后面没有冒号，从而 SyntaxError）。
+   - 此外，`generation_generation_batch_size` 和 `evaluation_generation_batch_size`、`scan_generation_batch_size` 是**不存在的变量名**（拼接错误），Section 0 中实际定义的变量为 `generation_batch_size`、`evaluation_batch_size`、`scan_batch_size`。
+
+2. **修复内容（3处）**：
+   - `"generation_batch_size": generation_generation_batch_size, evaluation_batch_size,`
+     → `"generation_batch_size": generation_batch_size,`
+   - `"evaluation_batch_size": evaluation_generation_batch_size, evaluation_batch_size,`
+     → `"evaluation_batch_size": evaluation_batch_size,`
+   - `"scan_batch_size": scan_generation_batch_size, evaluation_batch_size,`
+     → `"scan_batch_size": scan_batch_size,`
+
+3. **修复方式**：由于 `.ipynb` 文件不能直接用文件编辑工具修改，编写并执行了 `fix_section0_batch_size.py` Python 修复脚本，通过 JSON 解析和字符串替换精准修复了 notebook 中上述 3 处入参错误，全部验证通过（脚本输出 `✅ 修复完成，共修复 3 处错误`）。
+
+**Github Push Timeline**: 尚未执行 (Pending)
+
+---
+
+## 2026-04-15 12:55:36 (EDT)
+**Prompt细节**:
+> section 6 🔍 Initializing Automated Hotspot Evolution Engine (Section 6)...
+> ✅ State Secured: Loaded settings from isolated workspace [final_20260415_142503]
+> 🤖 Hotspot Evolution Engine Activated for Target: [AR_LBD]
+> 🌍 Initial Hotspots: ...
+> =======================================================(停止，无后续输出)
+
+**详细工作**:
+发现 Section 6 `while True` 循环在打印第一个分隔线 `=======` 之后就崩溃停止了，原因是三个独立 Bug 同时导致 `NameError`：
+
+**Bug 1 (NameError - 立即崩溃)**: 循环开头的进度打印 f-string 使用了两个不存在的变量名：
+- `{evolution_round}` → 应为 `{evolution_iterate}`
+- `{designs_in_current_round}` → 应为 `{designs_in_current_iterate}`
+（这是历史上多次重命名后残留的错误变量名引用，导致程序在打印第一个 `=======` 后立刻抛 NameError 崩溃）
+
+**Bug 2a (计数器逻辑错误)**: 循环末尾的 Iterate 重置块中有 `generation_round += 1`，这是错误的 —— 每个新的 Iterate 应该把 `generation_round` **重置回 1**（即 `generation_round = 1`），而不是继续累加。
+
+**Bug 2b (Iterate 计数永不递增)**: `evolution_iterate` 变量在整个程序中只在初始化时赋值为 `1`，循环末尾从来没有 `evolution_iterate += 1`，导致不管运行多少 Iterate 都永远显示 Iterate 1。
+
+**修复方式**: 由于 `.ipynb` 不能直接编辑，编写了 `fix_section6_all_bugs.py`，通过 JSON 对象级别（`cell["source"]` 数组逐行操作）精准修复，避免了原始字符串格式匹配问题。所有 3 个 Bug 均通过自动验证（`✅ VERIFICATION PASSED`）。
+
+**修复后循环 Reset 块的正确逻辑**:
+```
+evolution_iterate += 1      # ← Bug 2b 修复：Iterate 计数正确递增
+generation_round = 1        # ← Bug 2a 修复：Round 重置回 1（新 Iterate 从 Round 1 开始）
+designs_in_current_iterate = 0
+iterate_designs = []
+time.sleep(3)
+```
+
+**Github Push Timeline**: 尚未执行 (Pending)
