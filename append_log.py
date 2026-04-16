@@ -1,15 +1,44 @@
+import os
 import datetime
-log_entry = f'''
-=========================================
-Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Prompt Details: 另外， 不是一个batch输出8个么， 怎么一个batch就输出了36个？我知道设置是一个batch36个，但是系统只输出了8个。 另外， 把每次踢掉2个这个大循环的名字改叫iterate x， 以避免误解 (batch n ->  round x, x*n=48 here -> evolve iterate y)
-Actions Taken:
-1. 修改了 coLab/Proteina_Complexa_coLab.ipynb 中的 Section 6 循环名：
-   - 将原来导致混淆的 `Evolution Generation [Round X]: N/48 designs` 改为了 `Evolution Generation [Iterate X - Round Y]: N/48 designs`。
-   - 大循环也就是热点演化的周期（每攒够 48 个设计演化一次）被改名为 `Iterate`（迭代）。
-   - 小循环也就是生成每个批次的过程被改名为 `Round`（轮次）。所以控制台现在的输出看起来会是：`Evolution Generation [Iterate 1 - Round 1]: 0/48` 接着是 `[Iterate 1 - Round 2]: 8/48` 等。
-2. 修复了 Design 生成数量统计（“明明只有8个却增加了36个”的问题）：
-   - 将强行每次给 `designs_in_current_iterate` 直接加上 `generation_batch_size` (36) 的错误逻辑修改为：实际解析得到多少个有效 PDB CSV 报告（`len(batch_designs)`），计数器就真正增加多少。现在进度条能精准匹配因为内存或配置限制导致单个批次实际输出量不足 36 的情况。
-'''
-with open('/Users/ziqizhu/Code/Protein/Proteina-Complexa-dev/历史工作记录.txt', 'a', encoding='utf-8') as f:
-    f.write(log_entry)
+
+LOG_FILE = "历史工作记录.txt"
+HISTORY = """
+========================================
+【历史记录追溯】
+时间段: 2026-04-14 至 2026-04-15
+工作记录:
+- 排查与修复了 Complexa Binder 管道中的路径解析、内存泄露和可视化链长识别问题。
+- 构建了自动化的热点演化引擎 (Section 6)，并实现与原流程的解耦。
+- 实现热点演化 UI 的优化，进度条按每次 batch 处理的生成数量 (48) 来显示。
+- 集成了 evo_target_threshold，以支持达到目标结合分数时提前终止循环。
+- 引入保守演化策略：仅替换接触最差的 2 个残基，并引入柔性/刚性参数配置。
+- 在热点演化中添加了防消退机制和 Rollback (回退) 逻辑：一旦分数下降将回退并尝试第二梯队的最优残基。
+- 修复了 Section 0 中的全局配置字典语法错误。
+- 审阅与核对 Cell 18 相关循环逻辑。
+"""
+
+CURRENT_WORK = f"""
+========================================
+时间: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+任务/Prompt描述: 用户提出了自动热点演化算法两阶段架构设计的最新思路：
+1. 第一阶段(广度拓扑)：利用测地线距离与5Å向外扩张构建候选环，由KDTree排除核心残基后应用贪心集合覆盖算法生成物理边界不重叠的卫星岛。底层并行计算后，每个岛淘汰最弱3个旧核心，吸纳最强3个新核心生成杂交热点集合。
+2. 第二阶段(深度局部贪心收敛)：根据卫星岛的初始分数排序杂交岛优先级。利用KDTree提取原子接触分数进行固定48配体设计的串行微调(淘汰最差2、引入最佳2)。引入局部极小值判断和停止机制，并在受限时跳转至下一优先级的杂交岛。
+
+执行操作: 
+- 整理以往记录，创建 `历史工作记录.txt` 文件并补齐历史记录。
+- 采用append模式记录后续步骤。
+- 分析用户两阶段算法架构的可行性与逻辑，给出无代码的逻辑梳理和建议。
+========================================
+"""
+
+def append_to_log():
+    mode = "a" if os.path.exists(LOG_FILE) else "w"
+    with open(LOG_FILE, mode, encoding="utf-8") as f:
+        if mode == "w":
+            f.write("=== 项目自动化工作历史记录 ===\n")
+            f.write(HISTORY)
+        f.write(CURRENT_WORK)
+
+if __name__ == "__main__":
+    append_to_log()
+    print(f"Successfully updated {LOG_FILE}")
