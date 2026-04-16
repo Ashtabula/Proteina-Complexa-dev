@@ -46,6 +46,15 @@ SETTING_FILE = BASE_DIR / 'internal_settings.json'
 enable_cache_backup = True # @param {type:"boolean"}
 
 # ==========================================
+# --- Hardware Memory VRAM Limits ---
+# ==========================================
+# @markdown ### 💻 Hardware Memory Limits (VRAM Limit)
+# @markdown Set this lower if you encounter OOM (Out Of Memory). This is shared across evaluating and generating sections (Section 3, 4, 6).
+generation_batch_size = 36 #@param {type:"integer"}
+# @markdown **[AF2 Evaluation Batch]** Safe limit: 1. Evaluator uses massive memory. Keep at 1 for 16GB GPUs, or max 2-3 for A100. Over 3 will OOM.
+evaluation_batch_size = 1 #@param {type:"integer"}
+
+# ==========================================
 # --- Configuration for Target Setup & Processing (Cell 4) ---
 # ==========================================
 # @markdown ---
@@ -83,7 +92,6 @@ target_threshold = 0.85 #@param {type:"number"}
 target_success_count = 10 #@param {type:"integer"}
 max_iterations = 30 #@param {type:"integer"}
 
-batch_size = 36 #@param {type:"integer"}
 designs_per_loop = 36 #@param {type:"integer"}
 
 
@@ -111,6 +119,18 @@ scan_hydrophobic_patch = True #@param {type:"boolean"}
 scan_charged_patch = True #@param {type:"boolean"}
 
 
+# ==========================================
+# --- Auto-Evolution Target Screening Setting (Section 6) ---
+# ==========================================
+# @markdown ---
+# @markdown ---
+# @markdown ### 🧬 Auto-Evolution Target Screening Setting
+evo_designs_per_loop = 48 #@param {type:"integer"}
+evo_max_hotspots = 8 #@param {type:"integer"}
+evo_update_count = 2 #@param {type:"integer"}
+evo_target_threshold = 0.85 #@param {type:"number"}
+# @markdown Strict Geometric Confinement (Filter High RMSD before Evolution Selection)
+evo_strict_rmsd_filter = True #@param {type:"boolean"}
 
 # ==========================================
 # Execution Logic: Validation & Persistence
@@ -137,13 +157,19 @@ def write_settings_to_disk(pdb_name):
         "target_success_count": target_success_count,
         "designs_per_loop": designs_per_loop,
         "max_iterations": max_iterations,
-        "batch_size": batch_size,
+        "generation_batch_size": generation_batch_size,
+        "evaluation_batch_size": evaluation_batch_size,
         "anchor_residues": anchor_residues,
         # MAPPED UI VARIABLES TO BACKWARD COMPATIBLE JSON KEYS
         "scan_margin": global_search_boundary,
         "local_patch_radius": peptide_interaction_radius,
         "designs_per_patch": designs_per_patch,
         "scan_batch_size": scan_batch_size,
+        "evo_designs_per_loop": evo_designs_per_loop,
+                "evo_max_hotspots": evo_max_hotspots,
+        "evo_update_count": evo_update_count,
+        "evo_target_threshold": evo_target_threshold,
+        "evo_strict_rmsd_filter": evo_strict_rmsd_filter,
     }
 
     # Preserve existing run_id if it exists to allow proper resumption

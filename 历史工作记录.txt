@@ -544,3 +544,22 @@ time.sleep(3)
 2. Cell 19 代码中增加了基于 \`py3Dmol\` 的 3D Mesh 可视化模块：橘色 (orange) 渲染最初始的 hotspots，白色 (white) 渲染新计算得出的卫星岛屿群。
 3. 结构遵循了与原 Notebook 共享配置文件和执行命令逻辑的设计。
 ========================================
+
+========================================
+时间: 2026-04-16 05:58:10
+动作: 开始处理更改 Section 0 (配置项) 与 Section 2 (预处理逻辑) 的需求。
+详情: 
+1. 在 Section 0 中新增变量 `force_restart_task`。
+2. 在 Section 0 中移除之前的 `resume_run` 或相关续传配置选项。
+3. 在 Section 2 中修改逻辑：默认尝试续传 (找寻最后的 final_xxx_yyy 目录)，只有当 `force_restart_task` 为 True 时，才强制生成全新的时间戳目录并从头开始覆盖式计算。
+========================================
+
+========================================
+时间: 2026-04-16 05:59:41
+动作: 修改配置逻辑 (Section 0 / Cell 3) 与启动逻辑 (Section 2 / Cell 4b)。
+详情: 
+1. 通过 Python JSON 解析处理，成功替换了 Notebook 中的 `RESUME_LAST_SESSION`。
+2. Section 0 现在最顶端加入了：
+   `force_restart_task = False #@param {type:"boolean"}`
+3. Section 2 现在被改造为：默认继承最近一次对应任务的目录（续传）；但只要勾选了 `force_restart_task = True`，就会绕过校验，从零生成新的环境。
+========================================
