@@ -574,3 +574,67 @@ time.sleep(3)
 - 在 Notebook 末尾增加一个 Markdown 单元格 (Section 7: Topological Seeding and Deep Greedy Convergence) 以及两个新的代码单元格分别盛载 Cell 19 和 Cell 20。
 - 更新 `历史工作记录.txt` 附上本次修改。
 ========================================
+
+========================================
+时间: 2026-04-18 10:15:12 (EDT)
+动作: 验证并集成全局历史断点追踪档案机制 (history_run.csv)，更新说明文档。
+详情: 
+1. 目的: 增强断点续传功能。引入 history_run.csv 记录上次 run 的状态及详细参数（时间，Task Name，拼接 Run ID，Section 程序类型等），并对下游循环更新的数据（岛屿数、循环数、Max ipSAE）保留占位符以便下游填入。
+2. 更改: 检查确认了 notebook（Cell 4 / Section 4 的初始化模块中）成功解析 last_runs.txt 并追加历史记录到 screening_results/history_run.csv 的代码逻辑。对于占位的数据，留空预留给 Cell 7 等下游模块按循环步长更新。
+3. 改进: 相比于上一个版本，新代码通过 history_run.csv 建立了一条全局跨 section 的记录链。系统不仅能够知道当前在哪，还能准确溯源每次实验的具体参数及上下游进度，为未来的断点恢复、循环进度更新和最终效果对比打下强健的基础。
+4. 文档: 将此设计的机制原理说明追加写入了 README.md，并更新了本历史工作记录。
+
+Prompts细节: '增加需求： 更广阔的断点续传功能。 需求如下： 改一下这个代码...agent已经完成了cell4...你检查一下是否成功， 把这个设计加入Readme.md作为说明'
+Github Push Timeline: 尚未执行 (Pending)
+========================================
+
+========================================
+时间: 2026-04-18 10:28:00 (EDT)
+动作: 引入全局指定历史节点续传 (Time Machine) 功能，并更新相关配置逻辑与档案。
+详情: 
+1. 目的: 支持用户抽出任意历史实验记录（Time Machine），恢复特定的历史任务 ID 并在其当时的物理参数和热点配置下继续运行。
+2. 更改: 
+   - 在 Section 0 UI 顶部新增了 `specific_resume_run_id` 输入框，并持久化到 `internal_settings.json`。
+   - 在 Cell 4（Section 2 后端控制路由）中添加了“最高优先级逻辑”：如果指定了 `specific_resume_run_id`，系统会找到该历史文件夹，读取并**覆盖当前的所有配置**，强制重写 `last_runs.txt` 指针，最后跳过普通验证直接续传。
+   - 将这套系统梳理出的优先级机制（1. 指定续传，2. 默认顺延，3. 强制重新开始）写入了 `README.md`。
+3. 改进: 将续传的容错率和分支灵活性推至新的高度，让实验分支管理和回滚变得无痛且绝对安全（配置由机器全自动接管覆盖）。
+
+Prompts细节: "需要在现有的断点续传系统中加入‘全局指定历史节点续传（Time Machine）’的功能。一、 UI 端修改需求...二、 后端控制路由修改需求：最高优先级逻辑...读取该历史文件夹内的 internal_settings.json，并覆盖当前的全局 internal_settings.json...强制修改 last_runs.txt...打印醒目的提示..."
+Github Push Timeline: 尚未执行 (Pending)
+========================================
+
+========================================
+时间: 2026-04-18 15:08:25 (EDT)
+动作: 检查断点续传档案实现，并将 history_run.csv 中的 Top_Max_ipSAE 列名变更为 Overall_Data_Link。
+详情: 
+1. 目的: 修改数据结构的名称以更准确地反映其在架构中的用途（将单一的最高评分变量，泛化为更具普遍适用性的下游数据全局链接），保留其作为空白占位符等待下游更新的特性。
+2. 更改: 遍历替换了 Cell 4 中初始化 `history_run.csv` 表头的 `Top_Max_ipSAE` 为 `Overall_Data_Link`，并同步更新了代码注释。
+3. 改进: 提升了该数据槽位的扩展性，使下游（如 Section 7 或各种其他分支程序）能够填入任意类型的数据链接或者全局聚合信息，而不再被局限于单纯记录 ipsae 值。
+
+Prompts细节: "检查实现方式， history_run.csv把top max ipsae改成overall data link, 同样leave blank"
+Github Push Timeline: 尚未执行 (Pending)
+========================================
+
+========================================
+时间: 2026-04-18 15:12:40 (EDT)
+动作: 更改 AutoPilot 主循环 (Cell 7 / Section 4)，自动回填 masterlog 链接。
+详情: 
+1. 目的: 在每次启动自动筛选大循环读取 last_runs.txt 并初始化其 masterlog.csv 路径时，自动查询全局的 history_run.csv，并将生成的主日志文件链接回填至 Overall_Data_Link 槽位。
+2. 更改: 在 Cell 16 (Cell_7b_Autonomous_Generation_Loop) 解析出 run_id 和建立 `master_log_path` 后，加入了一段更新逻辑：读取 `history_run.csv`，找到对应 run_id 的所在行，然后把拼接好相对路径的 `master_log_path` （带 Markdown 链接格式）写入第 8 列 `Overall_Data_Link`，并写回保存。
+3. 改进: 实现了全局断点档案与当前批次具体详情日志的动态双向连接。当实验人员以后调阅 `history_run.csv` 寻找全局历史断点时，就能一键直达对应节点的所有生成评估明细 (masterlog.csv)。
+
+Prompts细节: "现在更改cell7，在每次读取lastrun.txt的时候，查询history run.csv， 并且将总的masterlog.csv的链接加入Overall_Data_Link"
+Github Push Timeline: 尚未执行 (Pending)
+========================================
+
+========================================
+时间: 2026-04-18 15:17:13 (EDT)
+动作: 检查并确认 Cell 7b 更新无误，并对 Cell 20 (Physical Generation and Hybridization) 实施相同的历史记录回填逻辑。
+详情: 
+1. 目的: 在所有会生成总控日志报告 (Masterlog / Summary CSV) 的大循环模块中，统一将其输出结果链接挂载回全局的 `history_run.csv`，形成网状的资料索骥。
+2. 更改: 确认了之前的 Cell 16 (`Cell_7b_Autonomous_Generation_Loop.py`) 已被准确更动。同时在 Cell 22 (`Cell_20_Physical_Generation_and_Hybridization.py`) 初始化 `Hybrid_Summary.csv` 的逻辑后，加入了相同的读取并更新 `history_run.csv` 中 `Overall_Data_Link` 槽位的代码。
+3. 改进: 使实验报告不仅局限于 AutoPilot 模块，连同后续的 Hybridization (物理杂交生成) 环节也拥有了向全局档案库实时同步报表的接口。
+
+Prompts细节: "double checking, cell7的意思是“ Cell_7b_Autonomous_Generation_Loop.py” 检查一下是不是更新了这个cell。 更新了cell7以后更新cell 20 “ Cell_20_Physical_Generation_and_Hybridization.py”"
+Github Push Timeline: 尚未执行 (Pending)
+========================================
