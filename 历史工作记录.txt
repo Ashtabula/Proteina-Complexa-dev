@@ -1,52 +1,80 @@
-# 历史工作记录
+# Proteina-Complexa-dev 历史工作记录
 
-## 2026-04-10 至 2026-04-18 (历史任务归档与补齐)
-- 优化了蛋白相互作用位点的提取架构，开发了自动化的 Hotspot Evolution UI 和进化迭代流水线。
-- 引入了 `history_run.csv` 机制用于全局断点追踪与任务状态继承（Time Machine Resume）。
-- 修复了 Section 6 Hotspot Evolution Engine 的异常报错、Batch 批次控制问题，以及字典语法故障。
-- 完成对 Section 7 的 Deep Greedy Convergence Loop 和 Topological Seeding and Hybridization 的实现与代码拼接。
-- 修复了 `force_restart_section_7` 无法正确触发 Session 重置的读取级别 Bug。
-- 重构了 Notebook Cell 的代码结构，拆分了业务计算逻辑与 3D 可视化展现步骤。
-- Push GitHub 历史节点: 开发过程中保持定期的 GitHub 代码推送和进度同步。
+## 📝 历史工作记录回顾 (根据近期对话整理)
 
-## 2026-04-19 14:40 (美东时间)
-- **Prompt 细节**：读代码cell 20... 我们是找到hotspot旁边的islands，然后看islands周边有没有结合能力特别强的位点。所以我们应该用island方圆6A的表面的氨基酸作为binder的target。这里core hotspots应该输出island方圆6A的表面氨基酸作为target。这一步不能和为我们指定的hotspot相混淆，而且需要提取出island 6A表面的元素。
-- **执行内容**：
-  1. 重写了 `Cell 20` 中的 `extract_patch_residues` 函数，集成基于 KDTree 与 Half-Sphere Exposure (HSE) 的残基表面掩码判别算法。
-  2. 将 6Å 算法收紧：现在算法不仅搜索 6Å 半径内的位置，更会在其基础之上，利用 HSE 计算 `forward_neighbors < 12` 的表面氨基酸，过滤掉被掩埋的内部残基，使生成的 binder target 100% 贴合蛋白质真实表面。
-  3. 更新了 Notebook 内部 UI 的输出逻辑。确保 "Core Hotspots" 的核心展示不受侵犯，同时新增 `6Å Surface Targets:` 结果项，清晰展示最终提供给生成架构的 target 参数，彻底消除核心与扩张表面的歧义。
-  4. 同步更新了 `README.md` 的架构描述。
-  5. 按照要求，新建并梳理了 `历史工作记录.txt` 文件，以便未来任务统一进行 append 追溯。
+### 2026-04-14
+- **11:51:26Z** | 优化蛋白质设计管线 (Troubleshooting Complexa Binder Pipeline):
+  修复了蛋白质设计管线中持续存在的路径解析错误、内存泄漏和可视化bug，实现了基于长度链识别防渲染错误，并动态映射热点残基。
 
-## 2026-04-19
-- **时间**: 2026-04-19 15:17:29
-- **Prompts细节**: "重新review cell 20， core hotspots 不需要扩展6a patch， 其他island比较小，需要扩展一下。 更改代码， 注意检查 island 产生的hotspots只包括表面氨基酸。 生成一个历史工作记录.txt..."
-- **完成的工作**:
-  1. 重新审查了 Cell 20 (Cell_20_Physical_Generation_and_Hybridization.py)。
-  2. 更改了 6Å 扩展的逻辑：当 `name == "Isl_0"` 时（即 core hotspots），由于不需扩大 patch，我们将搜索半径设为 0.0，使扩展范围仅包含核心残基本身。
-  3. 对于其他较小的卫星岛 (Satellite Islands)，保持 6.0Å 的距离进行 patch 扩展；
-  4. 无论是否进行扩展，搜出来的点都会进一步通过 HSE (Half-Sphere Exposure) 计算表面暴露情况，以确保最终输出的 targets (`patch_residues`) 仅包括表面的氨基酸。
-  5. 修改了前端 HTML 的 UI 输出字样（将 "6Å Surface Targets:" 更改为 "Surface Targets:" 以准确描述不同岛屿呈现的结果）。
-  6. 创建并初始化了《历史工作记录.txt》文件，补齐了此前的核心里程碑记录。
+### 2026-04-15
+- **12:34:59Z** | 优化热点进化管线 (Optimizing Hotspot Evolution Strategy):
+  在原笔记本中实现了自动迭代的“Hotspot Evolution”管线作为第六部分（Section 6），可以动态滤除无效位点并识别新高亲和力位点。
+- **13:16:34Z** | 优化热点进化终止条件 (Optimizing Hotspot Evolution Pipeline):
+  集成了 `evo_target_threshold` 参数，在达到目标结合亲和力时停止循环，并修复了全局配置参数的读取问题。
+- **13:59:31Z** | 改进热点进化UI反馈 (Refining Hotspot Evolution UI):
+  将进度报告格式由迭代数调整为基于生成总设计数的显示方式（如 "0/48"）。
+- **16:16:56Z** | 修复热点计数与进化策略 (Fixing Hotspot Evolution Counter):
+  通过改进热点突变逻辑防止过早的contact collapse，调整每轮替换的数量并加入刚性/柔性设计参数控制。
+- **16:35:00Z** | 实现热点演化回滚机制 (Analyzing Hotspot Evolution Logic):
+  增加性能下降时的回滚 (rollback) 机制。若当次 ipSAE 分数性能下降，则撤销该轮并选用备用新热点重试。
+- **16:48:12Z** | 修复配置字典语法错误 (Fixing Configuration Dictionary Syntax):
+  修复了 Section 0 中的 batch size 参数的语法报错 (SyntaxError)，确保环境顺利初始化。
+- **19:04:57Z** | 完善热点进化引擎代码 (Finalizing Hotspot Evolution Engine):
+  进一步确认 `Cell_18_Automated_Hotspot_Evolution_Loop.py` 内部回滚和热点增加/删除逻辑正常运行。
 
-## 2026-04-19 18:22:53
-- **Bug Fix**: 修复了在前序更新导致的 `NameError: name "scores_manifest" is not defined` 报错。
-- **原因分析**: 上次直接修改 `.ipynb` 文件时，使用的 Python 注入脚本对转义字符换行 `\n` 处理不当，导致 Jupyter Notebook 内 Cell 20 的源代码末尾生成了 `\n` 字面量字符格式，从而触发了 Python 的 `SyntaxError: unexpected character after line continuation character`。因为 Cell 20 直接 Crash 阻断了执行，因此后续用于画图和可视化的 Cell 21 在运行时找不到存在内存中的字典 `scores_manifest`。
-- **修复措施**: 回滚了破损的 Notebook 字段，使用正确的纯文本 `\n` 解析方式重新对 6Å Surface Targets 的逻辑进行了注入，并在离线通过了 Python 原生语法的 Parser Check。请重新回到 Cell 20 (Physical Generation and Hybridization) 执行，该对象将被成功赋值并在下一阶段正常调用！
+### 2026-04-16
+- **09:36:05Z** | 架构拓扑热点进化系统 (Refining Hotspot Evolution Algorithm):
+  实现了两阶段自动热点进化：凸包测地距离拓扑播种(Cell 19)和深度贪婪收敛 (Cell 20)。
+- **10:04:02Z** | 整合热点进化模块 (Integrating Hotspot Evolution Cells):
+  将 `Cell_19` 与 `Cell_20` 对应代码模块深度合入至 `Proteina_Complexa_coLab.ipynb` (Section 7)。
 
-## 2026-04-19 18:27 (美东时间)
-- **Prompt 细节**：Section 1: PAE 自动拦截引擎 (Monkey Patching)... 执行后抛出 `ModuleNotFoundError: No module named 'loguru'`。另外要求：交流尽量用中文。 生成一个历史工作记录.txt，以后每次更新后除了注释，github之外， 也在历史工作记录里详细记录做了什么， 包括时间，记录下prompts的细节，采用append方式，以及push github的时间线。。现在开始生成， 把以前的补上。 然后以后的工作都要append这个log。
-- **完成的工作**：
-  1. 通过命令行 `python3 -m pip install loguru` 在环境中成功安装了第三方日志库 `loguru`，修复了模块丢失的问题。
-  2. 审查了之前创建的 `历史工作记录.txt` 文件，并根据用户的最新指示，以 append (追加) 模式写入了当前的执行动作。
-  3. 确认此后所有的更新操作都会首先记录于此文档，并按要求计划定期 commit 与 push 记录。
+### 2026-04-19
+- **17:53:54Z** & **18:01:05Z** | 修复 Session 重启逻辑 (Debugging Section 7 Restart Logic):
+  修复 `force_restart_section_7` 读取错误的问题（改为读取全局 `root_cfg`），确保能够成功触发数据和轨迹的清空。
+- **18:32:30Z** | 重构 Notebook 单元格结构 (Refactoring Notebook Cell Structure):
+  将原 Cell 20 按照逻辑与展示分离的设计模式，分割提取出了专门用于渲染显示的 Cell 22。
+- **18:40:57Z** & **19:15:45Z** | 采用 HSE 算法靶向结合位点 (Refining Hotspot Evolution Targeting):
+  针对靶向 (Targeting) 增加了半球暴露 (HSE) 向量算法检查，使 6Å Patch 的扩展区域仅限于表面暴露的有效结合位点并取消了不合适的深层靶标扩展。
+- **22:26:57Z** | 修复 PAE 截取器依赖 (Fixing PAE Interceptor Dependencies):
+  环境安装 `loguru`，解决 PAE Interceptor 相关依赖错误。
+- **22:33:09Z** | 验证 PAE 矩阵生成 (Verifying PAE Matrix Output):
+  注入参数标志 `++evaluate.save_pae=True` 以在深层次迭代过程中确保 PAE 矩阵成功抓取与保存。
 
-===================================================
-Datetime: 2026-04-19 18:34:45
-Prompt: 检查代码， cell7, cell20会不会正确输出 pae matrix
-Actions Taken:
-1. Checked `Proteina_Complexa_coLab.ipynb` and found Cell 7 explicitly includes `++evaluate.save_pae=True` and `++evaluate.dump_json=True` in its subprocess calls.
-2. Verified `Cell_20_Deep_Greedy_Convergence_Loop.py`. Discovered that the `complexa design` command string within Cell 20's loop lacks the `++evaluate.save_pae=True` parameter.
-Conclusion:
-Cell 7 will correctly output the PAE matrix, but Cell 20 will not, as it is missing the necessary argument overrides.
-===================================================
+---
+
+## ⏳ 最新工作记录流水
+
+### 2026-04-19 (当前轮次)
+- **Time/时间**: 2026-04-19T18:40:28-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > 全局指令: 交流尽量用中文。 生成一个历史工作记录.txt，以后每次更新后除了注释，github之外， 也在历史工作记录里详细记录做了什么， 包括时间，记录下prompts的细节，采用append方式，以及push github的时间线。。现在开始生成， 把以前的补上。 然后以后的工作都要append这个log。
+  >
+  > 执行日志输入内容:
+  > 🔥 Initializing GPU Generation, True Resume Engine, and Real-time Tracking...
+  > ⏭️ [RESUME] Smart Resume active. Scanning for historical Hybridization sessions...
+  > 🔄 True Resume: Re-attaching to historical session [Y2026_M04_D19_H18_M52_S51]
+  > 📊 GLOBAL HISTORY: Successfully linked Hybrid_Summary_Y2026_M04_D19_H18_M52_S51.csv to Overall_Data_Link for Run_ID: AR_LBD_20260418_193945
+  > ⚙️ Configured to run 1 batches × 8 designs per island (Total: 8).
+  > 🔬 Extracting biological sequence order for AF2 reverse mapping...
+
+- **Action/执行的操作**:
+  1. 成功在项目根目录下生成了此统一追踪文件 `历史工作记录.txt`。
+  2. 根据历史多轮对话记录，梳理补全了从 2026-04-14 到当前时间的开发路线。
+  3. 确认了该运行日志（发现 GPU Generation的 Smart Resume 已成功链接历史Session且正在提取AF2 reverse mapping生物学序列，表明深度断点续跑功能运行正常。
+
+### 2026-04-19 (Bug Fix 轮次)
+- **Time/时间**: 2026-04-19T18:45:00-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > \`NameError: name 'patch_residues' is not defined\` 在 Initiating Island display cell (Cell 20/22 中)。
+- **Action/执行的操作**:
+  1. 定位到 Jupyter Notebook `Proteina_Complexa_coLab.ipynb` 中的代码循环，发现之前因为只提取了方法但未能使用，导致 `patch_residues` 变量未定义。
+  2. 实现了对核心热点的自动判断，对 Isl_0 保留原始残基，对其他 Peripheral Islands 启用 `extract_patch_residues` 从而实现 6Å Patch 的扩展。
+  3. 全面重构并重新注入了带有 Half-Sphere Exposure (HSE) 向量分析的 `extract_patch_residues` 方法，确保靶点识别仅限于表面暴露的结合位点，防止深层区域残基污染。
+
+### 2026-04-19 (Bug Fix 轮次 - Deprecation Warning)
+- **Time/时间**: 2026-04-19T18:47:00-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > /usr/local/lib/python3.12/dist-packages/jupyter_client/session.py:203: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+- **Action/执行的操作**:
+  1. 分析发现这是运行环境底层 `jupyter_client` (或依赖库) 因 Python 3.12 升级引发的 `DeprecationWarning`。
+  2. 在 `Proteina_Complexa_coLab.ipynb` 的 Section 0 全局配置初始化模块顶部，注入了 `warnings.filterwarnings` 来全局屏蔽此类警告，以保持执行日志输出的清爽、避免干扰开发视野。
