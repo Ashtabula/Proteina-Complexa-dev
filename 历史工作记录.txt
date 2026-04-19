@@ -47,3 +47,16 @@ Prompt详情: `force_restart_section_7 = True #@param {type:"boolean"} 然后执
   2. 将属于 Section 7 (即 Cell 19 Topological Seeding 和 Cell 20 Physical Generation) 区域中误用的 `force_restart_section_6` 改正为 `force_restart_section_7`。
   3. 执行 `patch_restart_logic_2.py` 处理 `Proteina_Complexa_coLab.ipynb` 完成。
 - 创建了当前的《历史工作记录.txt》用以后续追踪所有 prompt 和修改点。
+
+
+--------------------------------------------------------------------------------
+时间: 2026-04-19 14:34 (当前进展)
+目标: 拆分 Cell 20 (计算与可视化分离) 并重命名原有 Cell 21 为 22
+Prompt详情: `帮我把cell20分开， cell20 = compute， cell21显示 cell20的结果。不要更改功能，只是拆开代码 现在的cell21命名为cell22`
+变更内容: 
+- 修改了 `coLab/Proteina_Complexa_coLab.ipynb`。
+- 定位到包含物理生成和混合逻辑的 `# Cell_20_Physical_Generation_and_Hybridization.py` 代码块，将 `# --- 5. Separate Visualizations ---` 标注之后有关 `py3Dmol` 渲染输出的展示内容，拆分成为全新的 Cell 21。
+- 为拆分后的 Cell 21 追加了对应的头说明 `# Cell_21_Physical_Generation_Visualizations.py`。
+- 将旧的 Cell 21 (`# Cell_21_Deep_Greedy_Convergence_Loop.py`) 及顺延区域里的代码与标题安全变更为 `Cell_22`。
+- 未更改任何实现逻辑，已安全达成生成环节与展示环节的完全代码解耦。
+- 根据最新的全局系统规则，继续采用 Append 机制完成了 `历史工作记录.txt` 的追加更新。
