@@ -133,7 +133,8 @@ for island_name, island_data in sorted_queue:
             f"complexa design configs/search_binder_local_pipeline.yaml ++run_name={run_name} "
             f"++generation.task_name={task_name} ++generation.num_designs=48 "
             f"++generation.dataloader.batch_size=48 ++generation.search.max_batch_size=48 ++evaluation.dataloader.batch_size={evaluation_batch_size} "
-            f"++run_filter=True ++run_evaluate=True ++evaluate.num_recycles=1 ++evaluate.pad_to_max_length=True ++evaluate.use_msa=False ++evaluate.msa_mode=single_sequence ++run_analyze=True"
+            f"++run_filter=True ++run_evaluate=True ++evaluate.num_recycles=1 ++evaluate.pad_to_max_length=True ++evaluate.use_msa=False ++evaluate.msa_mode=single_sequence ++run_analyze=True "
+            f"++evaluate.save_pae=True ++evaluate.dump_json=True ++evaluate.save_outputs=True"
         )
 
         process = subprocess.Popen(
