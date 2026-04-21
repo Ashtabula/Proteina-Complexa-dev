@@ -101,3 +101,36 @@
      - Cell 22 初始极大负值 -999.0 引发的随机踢人陷阱。
      - Cell 20 np.mean() 在空数组发生时的 NaN 污染隐患。
   2. 已总结提炼详细解决方案并以中文回复输出。
+
+### 2026-04-21 (Architecture Refactoring 轮次)
+- **Time/时间**: 2026-04-21T19:18:00-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > 你现在是一位顶级的计算生物学家兼高级 Python 架构师。你需要帮我重构一个基于 AlphaFold2 (AF2) 的多肽设计管线。我们现在的目标是实现一种名为 "Diversity-Preserving Beam Search" (保持多样性的束搜索多分支演化) 的算法...
+- **Action/执行的操作**:
+  1. 根据提示词要求，设计并输出了 `diversity_beam_search.py` 模块的代码骨架，涵盖四大核心步骤逻辑：按结合构象聚类 (Clustering by Footprint)、选出聚类冠军 (Select Cluster Champions)、基于 PAE 的分支演化 (Evolve Lineup by PAE)、多分支并行与末位淘汰 (Compare & Prune)。
+  2. 使用 `Set` 和 Jaccard 相似度算法实现了对结合接触面热点的高效聚类，保留了不同方向的结合构象多样性。
+  3. 通过分离演化名单机制取代全局统一名单（Lineup），实现了分支并行防干扰，通过模拟计算 PAE 矩阵距离实现了自动化头狼提取与热点增补逻辑。
+  4. 更新了项目 `README.md`，将“保持多样性的束搜索多分支演化 (Diversity-Preserving Beam Search)”架构概念整合入文档。
+  5. 更新了此历史追踪记录 `历史工作记录.txt` 以保持开发轨迹同步。
+
+### 2026-04-21 (State Control & True Resume 轮次)
+- **Time/时间**: 2026-04-21T19:22:20-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > 这个补充非常关键！对于一个可能要跑几千次推理、耗时几十个小时的“多分支演化管线”来说，“一键重启 (Hard Reset)” 和 “无缝续传 (True Resume)” 的控制开关是工程落地的生命线...
+- **Action/执行的操作**:
+  1. 重构了 `diversity_beam_search.py`，深度融入了工业级 State Control Module。
+  2. 实现 `load_state_from_csv` 和 `save_state_to_csv` 以解析并持久化记录每一代所有分支的状态（Lineups / Active Hotspots / Champion Score）。
+  3. 构建了 **Absolute Memory (绝对记忆)** 系统，利用 `tested_history_set` 确保模型重启后对已知无效位点彻底免疫，避免死循环陷入。
+  4. 改进了主演化循环 `beam_search_evolution_loop`，无缝集成了 `force_restart_evolution` 布尔值控制开关，即使找不到历史记录也会静默 Fallback，保证流程的绝对鲁棒性。
+  5. 同步更新了 `README.md` 的机制说明，更新了历史追踪记录。
+
+### 2026-04-21 (Spatial Edge Expansion 拓扑升级轮次)
+- **Time/时间**: 2026-04-21T19:27:17-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > 纯基于 PAE 全局排序的致命盲区：空间连续性断裂... 现在的全新范式是：“核心锚定 + 表面外缘拓扑展开 (Spatial Edge Expansion Evolution)”...
+- **Action/执行的操作**:
+  1. 根据提示词完成了重大架构范式转移，创建了 `spatial_edge_evolution.py`。
+  2. 引入 `scipy.spatial.KDTree` 实现物理层面的三维雷达检索，强制替补残基在锚点 15Å 半径内，彻底解决多肽空间构象被“撕裂”的问题。
+  3. 设计了 `step1_define_perimeter` (找外缘圈) -> `step2_spatial_filtering` (建局部弹药库) -> `step3_local_evolution` (局部收敛) -> 全局去重的闭环推进逻辑。
+  4. 采用工业级 Tree-Structured Checkpointing 取代一维表格，利用 `EvolutionTreeManager` 将每次尝试按 `Core -> Anchor -> Results` 存入 `evolution_tree.json`，支持更精细的断点续传。
+  5. 补充更新了 `README.md` 及当前 `历史工作记录.txt` 保持开发追踪树的连贯。
