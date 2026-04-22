@@ -26,6 +26,7 @@ with open(ROOT_SETTING, 'r') as f:
 
 task_name = root_cfg['task_name']
 force_restart_evolution = root_cfg.get('force_restart_evolution', False) # Controlled via global config
+evo_max_hotspots = int(root_cfg.get('evo_max_hotspots', 8)) # 动态读取容量天花板
 evaluation_batch_size = int(root_cfg.get('evaluation_batch_size', 1))
 
 last_run_file = BASE_DIR / 'screening_results' / 'last_runs.txt'
@@ -327,10 +328,19 @@ for anchor_id in edge_anchors:
             contribs = calculate_residue_contributions(top_pdb, test_lineup)
             footprint = set(r for r, c in contribs.items() if c > 0)
             
-            # Sort non-core hotspots by contribution for the next generation's lineup proposal
-            non_core = [r for r in test_lineup if r not in base_hotspots]
-            non_core_sorted = sorted(non_core, key=lambda x: contribs.get(x, 0), reverse=True)
-            new_lineup = list(base_hotspots) + non_core_sorted[:max(1, len(non_core_sorted)-2)]
+            # 🌟 触及天花板时的末位淘汰逻辑 (Capacity Ceiling Pruning)
+            protect_list = set(base_hotspots).union({anchor_id})
+            if len(test_lineup) > evo_max_hotspots:
+                non_protected = [r for r in test_lineup if r not in protect_list]
+                # 依据贡献分数由高到低排序
+                non_protected_sorted = sorted(non_protected, key=lambda x: contribs.get(x, 0), reverse=True)
+                # 计算需要保留多少个非保护位点
+                num_to_keep = max(0, evo_max_hotspots - len(protect_list))
+                kept_non_protected = non_protected_sorted[:num_to_keep]
+                new_lineup = list(protect_list) + kept_non_protected
+            else:
+                # 扩张期 (Expansion): 未触及天花板，全量保留
+                new_lineup = list(test_lineup)
             
             generated_designs.append({
                 "parent_score": branch['score'],
