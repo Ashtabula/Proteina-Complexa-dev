@@ -1,24 +1,20 @@
 import os
-import datetime
 
-LOG_FILE = "历史工作记录.txt"
+log_path = '/Users/ziqizhu/Code/Protein/Proteina-Complexa-dev/历史工作记录.txt'
 
-CURRENT_WORK = f"""
-========================================
-时间: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-动作: 开始着手实现 Cell_19 和 Cell_20 的核心逻辑代码。
-详情: 
-1. 收集环境上下文以便生成代码。
-2. 检索当前工作区中的 `complexa design` 运行方式和 3D 可视化方法。
-3. 计划生成 Cell 19 代码，包含：凸包与测地线近似、表面 5Å 外扩、10Å KDTree 暴露过滤、5Å 集合覆盖独立岛提取、混合热点生成、基于 py3Dmol/类似库的 (orange/white) 网格可视化。
-4. 计划生成 Cell 20 代码，包含：基于 JSON 的微调队列、48 批次微调、联系度评分 (KDTree <4.5Å) 下的贪心替换 (去最差2 加最优2)、Rollback 防跌落机制。
-========================================
+log_append = """
+### 2026-05-03 (双向日志接管落地轮次)
+- **Time/时间**: 2026-05-03T08:55:00-04:00 (Local)
+- **Prompt/提示词指令**: 
+  > 读取刚加入的这些更新目标，实现功能：...
+- **Action/执行的操作**:
+  1. 通过 Python AST/代码替换精准定位并在三大耗时演化脚本 (`Cell_20_Deep_Greedy_Convergence_Loop.py`, `Cell_21_Spatial_Edge_Beam_Search.py`, `Cell_22_Deep_Greedy_Convergence_Loop.py`) 中全面注入了 `sync_log()` 双向日志节点机制。
+  2. 在所有脚本的物理里程碑（突破历史分数、触发 Rollback 回滚、末位淘汰、添加新靶向、模型收敛等）处成功部署了 Batch-Level 文件层面的追加记录，完全没有污染 `sys.stdout`，符合 Minimum Invasive 规范。
+  3. 创建了前台挂机监控脚本 `Cell_24_Live_Monitor.py`，其中采用了 `while True` 轮询和 `time.sleep(1)` 心跳探针架构，可确保在网页端实现不受限于内存大小的超长文本流展现并防止 Colab 会话回收休眠。
 """
 
-def append_to_log():
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(CURRENT_WORK)
+# Append to 历史工作记录.txt
+with open(log_path, 'a', encoding='utf-8') as f:
+    f.write('\n' + log_append + '\n')
 
-if __name__ == "__main__":
-    append_to_log()
-    print(f"Successfully updated {LOG_FILE}")
+print("Log appended successfully.")

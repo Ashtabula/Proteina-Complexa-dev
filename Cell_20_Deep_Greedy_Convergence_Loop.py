@@ -46,6 +46,17 @@ if not run_id:
     sys.exit(1)
 
 final_dir = BASE_DIR / 'screening_results' / task_name / target_dir_name
+
+# --- Bidirectional Live Sync (Dual-Channel Logger) ---
+LIVE_LOG_DIR = BASE_DIR / 'inference' / run_id
+LIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
+LIVE_LOG_FILE = LIVE_LOG_DIR / f"Live_Sync_{run_id}.log"
+
+def sync_log(message: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LIVE_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {message}\n")
+
 ISOLATED_SETTING = final_dir / 'internal_settings.json'
 
 with open(ISOLATED_SETTING, 'r') as f:
@@ -119,7 +130,9 @@ for island_name, island_data in sorted_queue:
     iteration = 1
     
     while True:
-        print(f"\n🔄 [{island_name} - Iteration {iteration}] Active Hotspots: {','.join(active_hotspots)}")
+        msg = f"🔄 [{island_name} - Iteration {iteration}] Active Hotspots: {','.join(active_hotspots)}"
+        print(f"\n{msg}")
+        sync_log(msg)
         run_name = f"ConvergeLoop_{island_name}_Iter{iteration}_{SESSION_TIMESTAMP}"
         
         if yaml_path.exists():
@@ -161,18 +174,26 @@ for island_name, island_data in sorted_queue:
                 current_max_score = float(top_row[score_col])
                 top_pdb = top_row.get('pdb_path', None)
 
-        print(f"📊 {island_name} Iter {iteration} Max ipSAE: {current_max_score:.4f}")
+        msg = f"📊 {island_name} Iter {iteration} Max ipSAE: {current_max_score:.4f}"
+        print(msg)
+        sync_log(msg)
         
         # --- 4. Rollback and Termination Logic ---
         if current_max_score < highest_ipsae_state:
-            print(f"📉 Notice: Performance degraded from {highest_ipsae_state:.4f} to {current_max_score:.4f}.")
+            msg = f"📉 Notice: Performance degraded from {highest_ipsae_state:.4f} to {current_max_score:.4f}."
+            print(msg)
+            sync_log(msg)
             if stagnation_rollback_state and stagnation_rollback_state['tried_rollback']:
-                print(f"🛑 Rollback recovery failed. {island_name} is marked as CONVERGED (Local Minima).")
+                msg = f"🛑 Rollback recovery failed. {island_name} is marked as CONVERGED (Local Minima)."
+                print(msg)
+                sync_log(msg)
                 print(f"🔒 Final Top State for {island_name} achieved ipSAE {highest_ipsae_state:.4f}")
                 # Store top structure logic goes here...
                 break 
             
-            print("🔙 Triggering Rollback...")
+            msg = "🔙 Triggering Rollback..."
+            print(msg)
+            sync_log(msg)
             active_hotspots = stagnation_rollback_state['hotspots']
             
             # Alternative: drop 2 worst, add 3rd/4th best instead of 1st/2nd best.
@@ -212,7 +233,9 @@ for island_name, island_data in sorted_queue:
         added = neo_sorted[:2]
         active_hotspots.extend(added)
         active_hotspots = list(set(active_hotspots))
-        print(f"➕ Absorbed highest contributing candidates: {','.join(added)}")
+        msg = f"➕ Absorbed highest contributing candidates: {','.join(added)}"
+        print(msg)
+        sync_log(msg)
         
         iteration += 1
 

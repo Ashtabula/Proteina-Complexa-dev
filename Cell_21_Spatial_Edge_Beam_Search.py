@@ -47,6 +47,17 @@ if not run_id:
     sys.exit(1)
 
 final_dir = BASE_DIR / 'screening_results' / task_name / target_dir_name
+
+# --- Bidirectional Live Sync (Dual-Channel Logger) ---
+LIVE_LOG_DIR = BASE_DIR / 'inference' / run_id
+LIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
+LIVE_LOG_FILE = LIVE_LOG_DIR / f"Live_Sync_{run_id}.log"
+
+def sync_log(message: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LIVE_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {message}\n")
+
 ISOLATED_SETTING = final_dir / 'internal_settings.json'
 
 with open(ISOLATED_SETTING, 'r') as f:
@@ -269,7 +280,9 @@ for anchor_id in edge_anchors:
         print(f"⏭️ Anchor {anchor_id} already converged in history. Skipping.")
         continue
         
-    print(f"\n📍 === Initiating Spatial Edge Expansion for Anchor {anchor_id} ===")
+    msg = f"📍 === Initiating Spatial Edge Expansion for Anchor {anchor_id} ==="
+    print(f"\n{msg}")
+    sync_log(msg)
     
     # --- [State Control] True Resume Mid-Anchor & Absolute Memory ---
     start_iteration, active_branches, csv_history = load_state_from_csv(BEAM_SEARCH_CSV, anchor_id)
@@ -322,7 +335,9 @@ for anchor_id in edge_anchors:
             
             run_name = f"EdgeExp_Anc{anchor_id}_Iter{iteration}_B{b_idx}_{SESSION_TIMESTAMP}"
             current_max_score, top_pdb = run_generation_and_score(run_name, test_lineup)
-            print(f"   [Iter {iteration} | Branch {b_idx}] Max ipSAE Score: {current_max_score:.4f}")
+            msg = f"   [Iter {iteration} | Branch {b_idx}] Max ipSAE Score: {current_max_score:.4f}"
+            print(msg)
+            sync_log(msg)
             
             # Extract actual footprint based on structural contacts
             contribs = calculate_residue_contributions(top_pdb, test_lineup)
@@ -368,7 +383,9 @@ for anchor_id in edge_anchors:
                 clusters[f"Cluster_{cluster_counter}"] = [d]
                 cluster_counter += 1
                 
-        print(f"   🧬 Diversity-Preserving Phase: Grouped into {len(clusters)} unique binding conformations.")
+        msg = f"   🧬 Diversity-Preserving Phase: Grouped into {len(clusters)} unique binding conformations."
+        print(msg)
+        sync_log(msg)
         
         new_branches = []
         improved = False
@@ -394,7 +411,9 @@ for anchor_id in edge_anchors:
             stagnation_counter = 0
         else:
             stagnation_counter += 1
-            print(f"   📉 Degradation across all diverse branches. Stagnation Count: {stagnation_counter}/3")
+            msg = f"   📉 Degradation across all diverse branches. Stagnation Count: {stagnation_counter}/3"
+            print(msg)
+            sync_log(msg)
             
         # Select top 3 diverse branches overall to avoid exponential explosion
         active_branches = sorted(new_branches, key=lambda x: x["score"], reverse=True)[:3]
@@ -409,7 +428,9 @@ for anchor_id in edge_anchors:
     if top_results:
         tree_data["Anchors"][anchor_id] = top_results
         save_tree(tree_data)
-        print(f"💾 Anchor {anchor_id} Converged. Top Results Checkpointed in JSON.")
+        msg = f"💾 Anchor {anchor_id} Converged. Top Results Checkpointed in JSON."
+        print(msg)
+        sync_log(msg)
         
     global_tested_history.add(anchor_id)
     # Erase the entire tested local pool from future anchors (Global Pruning)

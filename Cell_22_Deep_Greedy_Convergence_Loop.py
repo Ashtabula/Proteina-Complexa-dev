@@ -52,6 +52,17 @@ if not run_id:
     sys.exit(1)
 
 final_dir = BASE_DIR / 'screening_results' / task_name / target_dir_name
+
+# --- Bidirectional Live Sync (Dual-Channel Logger) ---
+LIVE_LOG_DIR = BASE_DIR / 'inference' / run_id
+LIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
+LIVE_LOG_FILE = LIVE_LOG_DIR / f"Live_Sync_{run_id}.log"
+
+def sync_log(message: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LIVE_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {message}\n")
+
 ISOLATED_SETTING = final_dir / 'internal_settings.json'
 
 with open(ISOLATED_SETTING, 'r') as f:
@@ -254,7 +265,9 @@ if TRAJECTORY_CSV.exists() and not force_restart:
         for hs_str in df_traj['Current_Hotspots'].dropna():
             tested_history_set.update(str(hs_str).split(','))
 
-        print(f"♻️ Resumed Global Evolution from Iteration {iteration} (Historical Best ipSAE: {best_ipsae:.4f})")
+        msg = f"♻️ Resumed Global Evolution from Iteration {iteration} (Historical Best ipSAE: {best_ipsae:.4f})"
+        print(msg)
+        sync_log(msg)
         print(f"🛡️ Reconstructed Core-8 Guard: {','.join(kept_core_8)}")
     else:
         # CSV 存在但为空的降级处理
@@ -280,6 +293,7 @@ display(HTML(f"""
 
 while True:
     display(HTML(f"<hr><h4 style='color: #8B008B;'>🔄 Iteration {iteration}</h4><p><b>Evaluating Active Hotspots:</b> {','.join(active_hotspots)}</p>"))
+    sync_log(f"🔄 Iteration {iteration} | Active Hotspots: {','.join(active_hotspots)}")
 
     # 1. 更新 Yaml 注入当前的靶点
     if yaml_path.exists():
@@ -335,6 +349,7 @@ while True:
 
     color = "green" if current_ipsae >= best_ipsae else "red"
     display(HTML(f"<p><b>Score achieved:</b> <span style='color:{color}; font-weight:bold; font-size:16px;'>{current_ipsae:.4f}</span> (Historical Best: {best_ipsae:.4f})</p>"))
+    sync_log(f"📊 Iteration {iteration} Max ipSAE: {current_ipsae:.4f}")
 
     # ==========================================
     # 🧬 EVOLUTION LOGIC ROUTING
@@ -362,7 +377,9 @@ while True:
 
         # 如果替补席空了，完美收敛
         if not remaining_pool:
-            print("🛑 CONVERGED: Pool exhausted. Peak performance achieved.")
+            msg = "🛑 CONVERGED: Pool exhausted. Peak performance achieved."
+            print(msg)
+            sync_log(msg)
             with open(TRAJECTORY_CSV, 'a') as f:
                 f.write(f"{iteration},{current_ipsae:.4f},CONVERGED_SUCCESS,Pool Exhausted,\"{','.join(best_active)}\"\n")
             break
@@ -375,17 +392,23 @@ while True:
         active_hotspots = kept_core_8 + added
         active_hotspots = sorted(list(set(active_hotspots)), key=lambda x: int(re.sub(r'\D', '', x)))
 
-        print(f"➕ Added next best candidates from pool: {','.join(added)}")
+        msg = f"➕ Added next best candidates from pool: {','.join(added)}"
+        print(msg)
+        sync_log(msg)
         with open(TRAJECTORY_CSV, 'a') as f:
             f.write(f"{iteration},{current_ipsae:.4f},EVOLVED,\"Drop: {dropped_str} | Add: {','.join(added)}\",\"{','.join(active_hotspots)}\"\n")
 
     else:
         # 📉 表现倒退！拒绝并平行替换
-        print("📉 Performance degraded. Discarding the last additions.")
+        msg = "📉 Performance degraded. Discarding the last additions."
+        print(msg)
+        sync_log(msg)
 
         # 替补席如果空了，说明所有组合都试过了，直接收敛到之前的最佳状态
         if not remaining_pool:
-            print(f"🛑 CONVERGED: All combinations exhausted. Finalizing at ipSAE {best_ipsae:.4f}")
+            msg = f"🛑 CONVERGED: All combinations exhausted. Finalizing at ipSAE {best_ipsae:.4f}"
+            print(msg)
+            sync_log(msg)
             with open(TRAJECTORY_CSV, 'a') as f:
                 f.write(f"{iteration},{current_ipsae:.4f},CONVERGED_DEGRADED,Reverted to best state,\"{','.join(best_active)}\"\n")
             break
@@ -398,7 +421,9 @@ while True:
         active_hotspots = kept_core_8 + added
         active_hotspots = sorted(list(set(active_hotspots)), key=lambda x: int(re.sub(r'\D', '', x)))
 
-        print(f"🔀 Retrying core with next alternative additions: {','.join(added)}")
+        msg = f"🔀 Retrying core with next alternative additions: {','.join(added)}"
+        print(msg)
+        sync_log(msg)
         with open(TRAJECTORY_CSV, 'a') as f:
             f.write(f"{iteration},{current_ipsae:.4f},ROLLBACK_RETRY,\"Swapped out bad candidates for: {','.join(added)}\",\"{','.join(active_hotspots)}\"\n")
 
