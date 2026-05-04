@@ -1,28 +1,25 @@
 import json
+import os
 
-notebook_path = "coLab/Latest_Proteina_Complexa_coLab.ipynb"
+notebook_path = "/Users/ziqizhu/Code/Protein/Proteina-Complexa-dev/coLab/Proteina_Complexa_coLab.ipynb"
+monitor_script = "/Users/ziqizhu/Code/Protein/Proteina-Complexa-dev/Cell_24_Live_Monitor.py"
+
+with open(monitor_script, "r", encoding="utf-8") as f:
+    monitor_code = f.readlines()
+
 with open(notebook_path, "r", encoding="utf-8") as f:
     nb = json.load(f)
 
-for cell in nb["cells"]:
-    if cell["cell_type"] == "code":
-        source = "".join(cell["source"])
-        if "❌ Critical Warning: Underlying generation engine crashed" in source:
-            # We found the AutoPilot loop cell!
-            new_source = []
-            for line in cell["source"]:
-                new_source.append(line)
-                if "print(f\"❌ Critical Warning: Underlying generation engine crashed (Error Code {ret_code})!\")" in line:
-                    indent = line[:line.find("print")]
-                    new_source.append(indent + "gc.collect()\n")
-                    new_source.append(indent + "if torch.cuda.is_available():\n")
-                    new_source.append(indent + "    torch.cuda.empty_cache()\n")
-                    new_source.append(indent + "    torch.cuda.ipc_collect()\n")
-                    new_source.append(indent + "print(\"🧹 Crash Recovery: Buffer and IPC memory forcibly cleared.\")\n")
-            
+for cell in nb.get("cells", []):
+    if cell.get("cell_type") == "code":
+        source = cell.get("source", [])
+        if any("Web Monitor for VS Code Process" in line for line in source):
+            # Keep the @title line, replace the rest
+            new_source = ["# @title 👁️‍🗨️ Web Monitor for VS Code Process\n"] + monitor_code
             cell["source"] = new_source
-            print("Successfully patched the AutoPilot loop memory leak bug in the notebook.")
+            break
 
 with open(notebook_path, "w", encoding="utf-8") as f:
-    json.dump(nb, f, indent=2)
+    json.dump(nb, f, indent=2, ensure_ascii=False)
 
+print("Notebook updated successfully.")
