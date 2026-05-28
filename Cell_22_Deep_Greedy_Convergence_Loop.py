@@ -399,6 +399,9 @@ while True:
                 f.write(f"{iteration},{current_ipsae:.4f},CONVERGED_DEGRADED,Reverted to best state,\"{','.join(best_active)}\"\n")
             break
 
+        # FIXED: Capture the additions that failed before overwriting active_hotspots
+        previous_added = [x for x in active_hotspots if x not in kept_core_8]
+
         added = remaining_pool[:2]
         remaining_pool = remaining_pool[2:]
 
