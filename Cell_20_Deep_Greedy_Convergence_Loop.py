@@ -210,7 +210,14 @@ for island_name, island_data in sorted_queue:
                     print(msg)
                     sync_log(msg)
                     print(f"🔒 Final Ultimate Top State for {island_name} achieved ipSAE {ultimate_best_score:.4f}")
-                    # In real code we would save ultimate_best_hotspots here
+                    # 修复：真正将最强阵容写回配置，防止“过河拆桥”
+                    active_hotspots = ultimate_best_hotspots
+                    if yaml_path.exists():
+                        with open(yaml_path, 'r') as f:
+                            yaml_data = yaml.safe_load(f)
+                        yaml_data['target_dict_cfg'][task_name]['hotspot_residues'] = [f"{target_chains}{r}" for r in active_hotspots]
+                        with open(yaml_path, 'w') as f:
+                            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
                     break 
                 
                 msg = "🔙 Triggering Rollback..."

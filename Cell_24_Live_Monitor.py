@@ -53,17 +53,18 @@ try:
             current_log_path = inference_dir / current_run_id / f"Live_Sync_{current_run_id}.log"
             print(f"\\n🔄 [探针检测到环境更新] 发现最新的执行任务: {current_run_id}")
             print(f"🔗 正在对齐新日志流: {current_log_path}\\n")
+            print(f"\n🔄 [探针检测到环境更新] 发现最新的执行任务: {current_run_id}")
+            print(f"🔗 正在对齐新日志流: {current_log_path}\n")
 
         # 3. 稳健等待：如果还没找到 run_id，或者 log_path 还没在硬盘上物理生成，安全挂起
         if not current_log_path or not current_log_path.exists():
             time.sleep(2)
             continue
             
-        # 4. 首次打开文件，跳到文件末尾开始追更
+        # 4. 首次打开文件，确保用户不丢失上下文
         if f_handle is None:
             f_handle = open(current_log_path, "r", encoding="utf-8")
-            f_handle.seek(0, os.SEEK_END)
-            print("✅ 成功接入数据流！开始实时广播 (同时维持心跳)：\\n")
+            print("✅ 成功接入数据流！开始实时广播 (同时维持心跳)：\n")
 
         # 5. 读取新的一行
         line = f_handle.readline()

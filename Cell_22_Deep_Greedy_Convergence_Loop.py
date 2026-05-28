@@ -330,19 +330,20 @@ while True:
     # 🧬 EVOLUTION LOGIC ROUTING WITH S.A.
     # ==========================================
     accepted_sa = False
-    if current_ipsae < best_ipsae:
+    if current_ipsae < current_state_ipsae: # FIXED: Compare against current state, not historical best
         temp = max(0.01, 0.1 * (0.85 ** iteration))
-        acceptance_prob = np.exp((current_ipsae - best_ipsae) / temp)
+        acceptance_prob = np.exp((current_ipsae - current_state_ipsae) / temp)
         if random.random() < acceptance_prob:
             accepted_sa = True
-            msg = f"🔥 SA Accepted Degraded State: {current_ipsae:.4f} < {best_ipsae:.4f} (Prob: {acceptance_prob:.2%}, T: {temp:.4f})"
+            msg = f"🔥 SA Accepted Degraded State: {current_ipsae:.4f} < {current_state_ipsae:.4f} (Prob: {acceptance_prob:.2%}, T: {temp:.4f})"
             print(msg)
             sync_log(msg)
             with open(TRAJECTORY_CSV, 'a') as f:
                 f.write(f"{iteration},{current_ipsae:.4f},SA_ACCEPTED,\"Degraded but accepted\",\"{','.join(active_hotspots)}\"\n")
 
-    if current_ipsae >= best_ipsae or accepted_sa:
-        if current_ipsae >= best_ipsae:
+    if current_ipsae >= current_state_ipsae or accepted_sa:
+        current_state_ipsae = current_ipsae
+        if current_ipsae > best_ipsae:
             best_ipsae = current_ipsae
             best_active = list(active_hotspots)
 
@@ -404,7 +405,10 @@ while True:
         active_hotspots = kept_core_8 + added
         active_hotspots = sorted(list(set(active_hotspots)), key=lambda x: int(re.sub(r'\D', '', x)))
 
-        msg = f"🔀 Retrying core with next alternative additions: {','.join(added)}"
+        # FIXED: Catch the discarded additions into the cooldown pool instead of black hole
+        for d in previous_added:
+            cooldown_dict[d] = 5
+        msg = f"🔀 Retrying core with next alternative additions: {','.join(added)} (Sent {','.join(previous_added)} to Cooldown)"
         print(msg)
         sync_log(msg)
         with open(TRAJECTORY_CSV, 'a') as f:
