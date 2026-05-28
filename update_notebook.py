@@ -1,50 +1,226 @@
 import json
-import re
-
-nb_path = 'c:/Code/Structure/Proteina-Complexa-dev/coLab/Proteina_Complexa_coLab.ipynb'
-
-with open(nb_path, 'r', encoding='utf-8') as f:
-    nb = json.load(f)
-
-# Cell 3 modification
-cell_3 = ''.join(nb['cells'][3]['source'])
-
-# 1. Add force_restart under specific_resume_run_id
-add_restart = """specific_resume_run_id = "" #@param {type:"string"}
-
-# @markdown ### 🔄 Global Execution Restart
-# @markdown Force a complete restart of the entire pipeline? (Ignores all existing history and generates a new Run ID)
-force_restart = False #@param {type:"boolean"}"""
-cell_3 = cell_3.replace('specific_resume_run_id = "" #@param {type:"string"}', add_restart)
-
-# 2. Remove force_restart_section_7
-cell_3 = re.sub(r'# @markdown Force restart Section 7 completely\? \(Ignore existing history\)\nforce_restart_section_7 = False #@param \{type:"boolean"\}\n', '', cell_3)
-
-# 3. Update dictionary
-cell_3 = cell_3.replace('"force_restart_section_7": force_restart_section_7,', '"force_restart": force_restart,')
-cell_3 = cell_3.replace('Restart Sec 7 (Evolution): \\\'YES\\\' if force_restart_section_7 else \\\'NO (Resume)\\\'', 'Global Restart: \\\'YES\\\' if force_restart else \\\'NO (Resume)\\\'')
-
-nb['cells'][3]['source'] = [line + '\n' for line in cell_3.split('\n')]
-# clean up the last newline to match format if necessary
-nb['cells'][3]['source'][-1] = nb['cells'][3]['source'][-1].rstrip('\n')
+from pathlib import Path
 
 
-# Cell 11 modification
-cell_11 = ''.join(nb['cells'][11]['source'])
-cell_11 = cell_11.replace('force_restart_task = cfg.get("force_restart_task", False)', 'force_restart = cfg.get("force_restart", False)')
-cell_11 = cell_11.replace('elif force_restart_task:', 'elif force_restart:')
-
-nb['cells'][11]['source'] = [line + '\n' for line in cell_11.split('\n')]
-nb['cells'][11]['source'][-1] = nb['cells'][11]['source'][-1].rstrip('\n')
+NOTEBOOKS = [
+    Path("coLab/Proteina_Complexa_coLab.ipynb"),
+    Path("Proteina_Complexa_coLab.ipynb"),
+]
 
 
-# Cells 17, 23, 25 modification
-for idx in [17, 23, 25]:
-    if idx < len(nb['cells']):
-        cell_source = ''.join(nb['cells'][idx]['source'])
-        cell_source = cell_source.replace('force_restart_section_7', 'force_restart')
-        nb['cells'][idx]['source'] = [line + '\n' for line in cell_source.split('\n')]
-        nb['cells'][idx]['source'][-1] = nb['cells'][idx]['source'][-1].rstrip('\n')
+def source_to_text(cell):
+    return "".join(cell.get("source", []))
 
-with open(nb_path, 'w', encoding='utf-8') as f:
-    json.dump(nb, f, indent=1, ensure_ascii=False)
+
+def text_to_source(text):
+    return text.splitlines(keepends=True)
+
+
+def patch_section_0(src):
+    src = src.replace(
+        "# UPDATE: Removed global force_restart. Added section-specific resume/restart toggles (Section 5, 6, 7) directly within their respective configuration blocks for granular session management.",
+        "# UPDATE: Global force_restart creates a new run_id; stage-specific restart toggles only clear their own stage data.",
+    )
+
+    src = src.replace(
+        'specific_resume_run_id = "" #@param {type:"string"}\n'
+        "# @markdown Force start a brand new run? (Bypass history resume)\n"
+        'force_restart_task = False #@param {type:"boolean"}',
+        'specific_resume_run_id = "" #@param {type:"string"}\n'
+        "\n"
+        "# @markdown ### \U0001f504 Global Execution Restart\n"
+        "# @markdown Force a complete restart of the entire pipeline? (Ignores all existing history and generates a new Run ID)\n"
+        'force_restart = False #@param {type:"boolean"}',
+    )
+
+    src = src.replace(
+        "# @markdown Force restart Section 7 completely? (Ignore existing history)\n"
+        'force_restart_section_7 = False #@param {type:"boolean"}\n',
+        "",
+    )
+    src = src.replace(
+        '        "force_restart_task": force_restart_task,\n',
+        '        "force_restart": force_restart,\n',
+    )
+    src = src.replace(
+        '        "force_restart_section_7": force_restart_section_7,\n',
+        "",
+    )
+    src = src.replace(
+        '    print(f"Restart Sec 7: {\'YES\' if force_restart_section_7 else \'NO\'}")',
+        '    print(f"Global Restart: {\'YES\' if force_restart else \'NO (Resume)\'}")',
+    )
+    src = src.replace(
+        '    print(f"Restart Sec 7 (Evolution): {\'YES\' if force_restart_section_7 else \'NO (Resume)\'}")',
+        '    print(f"Global Restart: {\'YES\' if force_restart else \'NO (Resume)\'}")',
+    )
+    return src
+
+
+def patch_section_2(src):
+    src = src.replace(
+        'force_restart_task = cfg.get("force_restart_task", False)',
+        'force_restart = cfg.get("force_restart", False)',
+    )
+    src = src.replace(
+        'force_restart = cfg.get("force_restart", cfg.get("force_restart_task", False))',
+        'force_restart = cfg.get("force_restart", False)',
+    )
+    src = src.replace("elif force_restart_task:", "elif force_restart:")
+    return src
+
+
+def patch_topological_seed_cell(src):
+    src = src.replace(
+        "# - Section 7 Smart Restart: Read force_restart_section_7 to wipe old geometric manifests if triggered.",
+        "# - Uses the current run_id workspace; global force_restart is handled upstream in Section 2.",
+    )
+    src = src.replace(
+        "# --- SMART RESTART LOGIC FOR SECTION 6 ---\n"
+        "force_restart_section_7 = bool(root_cfg.get('force_restart_section_7', False))\n"
+        "if force_restart_section_7:\n"
+        '    print("\\n\U0001f5d1\ufe0f [COMMAND] Force Restart Section 6 is ENABLED.")\n'
+        "    if geometric_manifest_path.exists():\n"
+        "        geometric_manifest_path.unlink()\n"
+        '        print("\U0001f9f9 Wiped old Geometric_Islands_Manifest.json to generate fresh geometric seeds.")\n'
+        "else:\n"
+        '    print(f"\\n\u23ed\ufe0f [RESUME] Smart Resume active. Regenerating topological surface arrays in memory...")',
+        "# --- CURRENT RUN_ID WORKSPACE ---\n"
+        'print("\\n[CURRENT RUN] Regenerating topological surface arrays in memory for the active run_id.")',
+    )
+    src = src.replace(
+        "# --- SMART RESTART LOGIC FOR SECTION 6 ---\n"
+        "force_restart = bool(root_cfg.get('force_restart_section_7', False))\n"
+        "if force_restart:\n"
+        '    print("\\n\U0001f5d1\ufe0f [COMMAND] Force Restart Section 6 is ENABLED.")\n'
+        "    if geometric_manifest_path.exists():\n"
+        "        geometric_manifest_path.unlink()\n"
+        '        print("\U0001f9f9 Wiped old Geometric_Islands_Manifest.json to generate fresh geometric seeds.")\n'
+        "else:\n"
+        '    print(f"\\n\u23ed\ufe0f [RESUME] Smart Resume active. Regenerating topological surface arrays in memory...")',
+        "# --- CURRENT RUN_ID WORKSPACE ---\n"
+        'print("\\n[CURRENT RUN] Regenerating topological surface arrays in memory for the active run_id.")',
+    )
+    return src
+
+
+def patch_core_hotspot_cell(src):
+    if src.startswith("#Cell_20_Core Hotspot") and "force_restart_core_islands" not in src:
+        src = src.replace(
+            "#Cell_20_Core Hotspot Randomized Screening (Generation & Master Table Export)\n\n",
+            "#Cell_20_Core Hotspot Randomized Screening (Generation & Master Table Export)\n\n"
+            "# --- User Configuration ---\n"
+            'force_restart_core_islands = False #@param {type:"boolean"}\n\n',
+        )
+
+    src = src.replace(
+        "force_restart_section_7 = bool(root_cfg.get('force_restart_section_7', False))\n\n",
+        "",
+    )
+    src = src.replace(
+        "if not force_restart_section_7 and master_csv_path.exists():",
+        "if not force_restart_core_islands and master_csv_path.exists():",
+    )
+    src = src.replace(
+        "`force_restart_section_7` is set to False.",
+        "`force_restart_core_islands` is set to False.",
+    )
+    src = src.replace(
+        "'force_restart_section_7' is True.",
+        "'force_restart_core_islands' is True.",
+    )
+
+    if "force_restart_core_islands" in src and "Core Hotspot data" not in src:
+        src = src.replace(
+            '    res_master_csv = final_dir / "Core_Residue_PAE_Master.csv"\n\n'
+            "    core_res_pae_tracker = {}",
+            '    res_master_csv = final_dir / "Core_Residue_PAE_Master.csv"\n\n'
+            "    if force_restart_core_islands:\n"
+            '        print("\u26a0\ufe0f [FORCE RESTART] Overwriting previous Core Hotspot data...")\n'
+            "        for stale_path in [master_csv_path, path_csv_path, res_master_csv]:\n"
+            "            if stale_path.exists(): stale_path.unlink()\n\n"
+            "    core_res_pae_tracker = {}",
+        )
+    return src
+
+
+def patch_stage_restart_cells(src):
+    src = src.replace(
+        "force_restart_section_7 = bool(root_cfg.get('force_restart_section_7', False))\n",
+        "",
+    )
+    src = src.replace(
+        "should_reset = force_restart_section_7 or force_restart_edge_islands",
+        "should_reset = force_restart_edge_islands",
+    )
+    src = src.replace(
+        "should_reset = force_restart_section_7 or force_restart_evo",
+        "should_reset = force_restart_evo",
+    )
+    src = src.replace(
+        "should_clear_evo = force_restart_section_7 or force_restart_evo",
+        "should_clear_evo = force_restart_evo",
+    )
+    src = src.replace(
+        "#force_restart_section_7 = False #@param {type:\"boolean\"}\n",
+        "",
+    )
+    return src
+
+
+def scrub_stale_output_text(value):
+    if isinstance(value, str):
+        return (
+            value.replace("force_restart_section_7", "stage-specific force_restart")
+            .replace("Restart Sec 7 (Evolution)", "Global Restart")
+            .replace("Restart Sec 7", "Global Restart")
+        )
+    if isinstance(value, list):
+        return [scrub_stale_output_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: scrub_stale_output_text(item) for key, item in value.items()}
+    return value
+
+
+def patch_notebook(path):
+    with path.open("r", encoding="utf-8") as f:
+        nb = json.load(f)
+
+    for cell in nb.get("cells", []):
+        src = source_to_text(cell)
+        if not src:
+            continue
+
+        src = src.replace("for line in reversed(lines):", "for line in lines:")
+
+        if "Section_0_Global_Configuration_Dashboard.py" in src:
+            src = patch_section_0(src)
+        if "Cell_4b_PDB_Processing_and_YAML_Configuration_Generation.py" in src:
+            src = patch_section_2(src)
+        if "Cell_19_Topological_Seeding_and_Visualization.py" in src:
+            src = patch_topological_seed_cell(src)
+        if "Cell_20b_Core_Hotspot_Screening.py" in src or src.startswith("#Cell_20_Core Hotspot"):
+            src = patch_core_hotspot_cell(src)
+        if any(
+            token in src
+            for token in [
+                "force_restart_section_7",
+                "force_restart_edge_islands",
+                "force_restart_evo",
+            ]
+        ):
+            src = patch_stage_restart_cells(src)
+
+        cell["source"] = text_to_source(src)
+        if "outputs" in cell:
+            cell["outputs"] = scrub_stale_output_text(cell["outputs"])
+
+    escape_non_ascii = len(path.parts) == 1
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(nb, f, indent=1, ensure_ascii=escape_non_ascii)
+        f.write("\n")
+
+
+for notebook_path in NOTEBOOKS:
+    patch_notebook(notebook_path)
+    print(f"Patched {notebook_path}")
