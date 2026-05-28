@@ -1,9 +1,3 @@
-# Cell_21_Spatial_Edge_Beam_Search.py
-# Requirements:
-# - Implement "Spatial Edge Expansion Evolution" (Advancing Front Method)
-# - Implement "Diversity-Preserving Beam Search" with True Resume & Absolute Memory via CSV
-# - Integrates PDB Parsing, KDTree Spatial Filtering, and Subprocess Generative execution.
-
 import os, sys, json, subprocess, time, datetime, re, shutil
 from pathlib import Path
 import numpy as np
@@ -25,8 +19,8 @@ with open(ROOT_SETTING, 'r') as f:
     root_cfg = json.load(f)
 
 task_name = root_cfg['task_name']
-force_restart_evolution = root_cfg.get('force_restart_evolution', False) # Controlled via global config
-evo_max_hotspots = int(root_cfg.get('evo_max_hotspots', 8)) # 动态读取容量天花板
+force_restart_evolution = root_cfg.get('force_restart_evolution', False)
+evo_max_hotspots = int(root_cfg.get('evo_max_hotspots', 8))
 evaluation_batch_size = int(root_cfg.get('evaluation_batch_size', 1))
 
 last_run_file = BASE_DIR / 'screening_results' / 'last_runs.txt'
@@ -48,7 +42,6 @@ if not run_id:
 
 final_dir = BASE_DIR / 'screening_results' / task_name / target_dir_name
 
-# --- Bidirectional Live Sync (Dual-Channel Logger) ---
 LIVE_LOG_DIR = BASE_DIR / 'inference' / run_id
 LIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
 LIVE_LOG_FILE = LIVE_LOG_DIR / f"Live_Sync_{run_id}.log"
@@ -74,7 +67,6 @@ yaml_path = BASE_DIR / 'configs/targets/targets_dict.yaml'
 env = os.environ.copy()
 env.update({'HYDRA_FULL_ERROR': '1', 'XLA_PYTHON_CLIENT_PREALLOCATE': 'false', 'PYTHONUNBUFFERED': '1'})
 
-# --- 1. Architecture: PDB Parsing & CA coordinate extraction ---
 print("🔬 Parsing target structures and calculating topologies...")
 ca_atoms = {}
 with open(SOURCE_PDB_PATH, 'r') as f:
@@ -87,7 +79,6 @@ with open(SOURCE_PDB_PATH, 'r') as f:
 all_res_ids = list(ca_atoms.keys())
 all_coords = np.array([ca_atoms[rid] for rid in all_res_ids])
 
-# Find surface exposed residues (KDTree 10A, <20 neighbors)
 global_kdtree = KDTree(all_coords)
 surface_mask = set()
 for i, rid in enumerate(all_res_ids):
@@ -97,7 +88,6 @@ for i, rid in enumerate(all_res_ids):
 
 print(f"🌊 Identified {len(surface_mask)} surface-exposed residues.")
 
-# --- 2. Classes & State Management (State Control Module) ---
 EVOLUTION_TREE_JSON = final_dir / "evolution_tree.json"
 BEAM_SEARCH_CSV = final_dir / "beam_search_state.csv"
 
@@ -112,7 +102,6 @@ def load_tree():
     return {"Core_Hotspots": base_hotspots, "Anchors": {}}
 
 def save_state_to_csv(csv_path, anchor_id, iteration, active_branches, tested_history_set):
-    """Saves the current state of all active branches to CSV for True Resume."""
     file_exists = os.path.isfile(csv_path)
     with open(csv_path, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
@@ -132,7 +121,6 @@ def save_state_to_csv(csv_path, anchor_id, iteration, active_branches, tested_hi
             ])
 
 def load_state_from_csv(csv_path, target_anchor_id):
-    """Loads the battlefield morphology at the moment before the crash for a specific anchor."""
     if not os.path.exists(csv_path):
         return 1, [], set()
         
@@ -143,12 +131,10 @@ def load_state_from_csv(csv_path, target_anchor_id):
     with open(csv_path, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            # Absolute memory rebuilding
             if row['tested_history']:
                 history_list = row['tested_history'].split(';')
                 tested_history_set.update(x for x in history_list if x)
                 
-            # Reconstruct branches for this anchor
             if row['anchor_id'] == str(target_anchor_id):
                 iter_num = int(row['iteration'])
                 if iter_num > last_iteration:
@@ -168,7 +154,6 @@ def load_state_from_csv(csv_path, target_anchor_id):
     start_iteration = last_iteration + 1 if last_iteration > 0 else 1
     return start_iteration, active_branches, tested_history_set
 
-# --- 3. Step 1: Perimeter Definition ---
 def get_edge_anchors(core_hotspots, ca_dict, surface_set):
     edge_anchors = []
     core_coords = np.array([ca_dict[rid] for rid in core_hotspots if rid in ca_dict])
@@ -182,7 +167,6 @@ def get_edge_anchors(core_hotspots, ca_dict, surface_set):
                 edge_anchors.append(res_id)
     return edge_anchors
 
-# --- 4. Subprocess Execution & KDTree Contribution Scoring ---
 def run_generation_and_score(run_name, active_hotspots):
     if yaml_path.exists():
         with open(yaml_path, 'r') as f:
@@ -229,19 +213,28 @@ def calculate_residue_contributions(pdb_path, res_list):
     t_coords, b_coords = {}, []
     with open(pdb_path, 'r') as f:
         for line in f:
-            if line.startswith("ATOM") and line[12:16].strip() == "CA":
+            if line.startswith("ATOM"):
+                atom_name = line[12:16].strip()
+                if atom_name.startswith("H"): continue
                 c, r, x, y, z = line[21], line[22:26].strip(), float(line[30:38]), float(line[38:46]), float(line[46:54])
                 if c == target_chains:
-                    t_coords[r] = [x, y, z]
+                    if r not in t_coords: t_coords[r] = []
+                    t_coords[r].append([x, y, z])
                 else:
                     b_coords.append([x, y, z])
     if not b_coords: return scores
     b_tree = KDTree(b_coords)
     for rid in res_list:
         if rid in t_coords:
-            dists, _ = b_tree.query(t_coords[rid], k=1)
-            if dists < 4.5:
-                scores[rid] = 1.0 / (dists + 0.1)
+            min_dist = 999.0
+            for coord in t_coords[rid]:
+                dists, _ = b_tree.query(coord, k=1)
+                if dists < min_dist: min_dist = dists
+            
+            if min_dist < 2.5:
+                scores[rid] = -2.0 # Steric Clash Penalty
+            else:
+                scores[rid] = np.exp(-((min_dist - 3.8)**2) / (2 * 1.5**2))
     return scores
 
 def compute_jaccard_similarity(set1, set2):
@@ -249,8 +242,6 @@ def compute_jaccard_similarity(set1, set2):
     union = len(set1.union(set2))
     return intersection / union if union > 0 else 0.0
 
-
-# --- 5. Main Initialization ---
 print("\n--- State Control & Resume ---")
 if force_restart_evolution or not EVOLUTION_TREE_JSON.exists():
     print(">> Hard Reset Initiated: Generating Ground Zero...")
@@ -259,7 +250,6 @@ if force_restart_evolution or not EVOLUTION_TREE_JSON.exists():
     tree_data = {"Core_Hotspots": base_hotspots, "Anchors": {}}
     save_tree(tree_data)
 else:
-    # Auto-Fallback (静默退回机制) + True Resume (多分支现场恢复)
     print(">> True Resume Active: Reconstructing battlefield from JSON and CSV...")
     tree_data = load_tree()
 
@@ -267,14 +257,12 @@ completed_anchors = set(tree_data["Anchors"].keys())
 edge_anchors = get_edge_anchors(base_hotspots, ca_atoms, surface_mask)
 print(f"📡 Detected {len(edge_anchors)} Edge Anchors surrounding the Core.")
 
-# Rebuild absolute memory from the global history of the JSON tree
 global_tested_history = set(base_hotspots)
 for anc, results in tree_data["Anchors"].items():
     global_tested_history.add(anc)
     for r in results:
         global_tested_history.update(r['lineup'])
 
-# Beam Search Engine Loop over Anchors
 for anchor_id in edge_anchors:
     if anchor_id in completed_anchors:
         print(f"⏭️ Anchor {anchor_id} already converged in history. Skipping.")
@@ -284,11 +272,9 @@ for anchor_id in edge_anchors:
     print(f"\n{msg}")
     sync_log(msg)
     
-    # --- [State Control] True Resume Mid-Anchor & Absolute Memory ---
     start_iteration, active_branches, csv_history = load_state_from_csv(BEAM_SEARCH_CSV, anchor_id)
     global_tested_history.update(csv_history)
     
-    # 1. Anchor-based Spatial Filtering (15A pool)
     candidate_coords = []
     candidate_ids = []
     for rid in surface_mask:
@@ -309,7 +295,6 @@ for anchor_id in edge_anchors:
         
     print(f"   Anchor {anchor_id} Local 15A Pool size: {len(local_pool)}")
     
-    # Restore or Init active branches
     if not active_branches:
         print(">> Fresh start for this anchor.")
         current_lineup = list(set(base_hotspots).union({anchor_id}))
@@ -321,14 +306,12 @@ for anchor_id in edge_anchors:
     iteration = start_iteration
     top_results = list(active_branches)
     
-    # 2. Local Beam Evolution (Multi-branch)
     while len(local_pool) >= 2 and stagnation_counter < 3:
         add_1, add_2 = local_pool.pop(0), local_pool.pop(0)
         global_tested_history.update([add_1, add_2])
         
         generated_designs = []
         
-        # Branch-wise Generative Evaluation
         for b_idx, branch in enumerate(active_branches):
             test_lineup = list(set(branch['lineup'] + [add_1, add_2]))
             print(f"\n   [Iter {iteration} | Branch {b_idx}] Testing Lineup: {','.join(test_lineup)}")
@@ -339,22 +322,17 @@ for anchor_id in edge_anchors:
             print(msg)
             sync_log(msg)
             
-            # Extract actual footprint based on structural contacts
             contribs = calculate_residue_contributions(top_pdb, test_lineup)
             footprint = set(r for r, c in contribs.items() if c > 0)
             
-            # 🌟 触及天花板时的末位淘汰逻辑 (Capacity Ceiling Pruning)
             protect_list = set(base_hotspots).union({anchor_id})
             if len(test_lineup) > evo_max_hotspots:
                 non_protected = [r for r in test_lineup if r not in protect_list]
-                # 依据贡献分数由高到低排序
                 non_protected_sorted = sorted(non_protected, key=lambda x: contribs.get(x, 0), reverse=True)
-                # 计算需要保留多少个非保护位点
                 num_to_keep = max(0, evo_max_hotspots - len(protect_list))
                 kept_non_protected = non_protected_sorted[:num_to_keep]
                 new_lineup = list(protect_list) + kept_non_protected
             else:
-                # 扩张期 (Expansion): 未触及天花板，全量保留
                 new_lineup = list(test_lineup)
             
             generated_designs.append({
@@ -365,9 +343,6 @@ for anchor_id in edge_anchors:
                 "footprint": footprint
             })
             
-        # ---------------------------------------------------------
-        # Diversity-Preserving Mechanism: Clustering & Alpha Wolves
-        # ---------------------------------------------------------
         clusters = {}
         cluster_counter = 1
         for d in generated_designs:
@@ -375,7 +350,7 @@ for anchor_id in edge_anchors:
             for cid, c_designs in clusters.items():
                 rep_footprint = c_designs[0]["footprint"]
                 sim = compute_jaccard_similarity(d["footprint"], rep_footprint)
-                if sim >= 0.4: # Jaccard threshold
+                if sim >= 0.3: # Relaxed Jaccard threshold from 0.4 to 0.3 to preserve more diversity
                     clusters[cid].append(d)
                     assigned = True
                     break
@@ -391,7 +366,6 @@ for anchor_id in edge_anchors:
         improved = False
         
         for cid, c_designs in clusters.items():
-            # Select Champion (Alpha Wolf) for this cluster
             champion = sorted(c_designs, key=lambda x: x["score"], reverse=True)[0]
             
             if champion["score"] > champion["parent_score"]:
@@ -401,7 +375,6 @@ for anchor_id in edge_anchors:
                     "score": champion["score"]
                 })
             else:
-                # Fallback to parent state to preserve this lineage's best historical state
                 new_branches.append({
                     "lineup": champion["parent_lineup"],
                     "score": champion["parent_score"]
@@ -415,16 +388,13 @@ for anchor_id in edge_anchors:
             print(msg)
             sync_log(msg)
             
-        # Select top 3 diverse branches overall to avoid exponential explosion
         active_branches = sorted(new_branches, key=lambda x: x["score"], reverse=True)[:3]
         top_results = list(active_branches)
         
-        # Save state to CSV (Absolute memory and Branch Recovery)
         save_state_to_csv(BEAM_SEARCH_CSV, anchor_id, iteration, active_branches, global_tested_history)
         
         iteration += 1
         
-    # 3. Save to Tree (JSON Checkpointing upon local convergence)
     if top_results:
         tree_data["Anchors"][anchor_id] = top_results
         save_tree(tree_data)
@@ -433,18 +403,9 @@ for anchor_id in edge_anchors:
         sync_log(msg)
         
     global_tested_history.add(anchor_id)
-    # Erase the entire tested local pool from future anchors (Global Pruning)
     for res in candidate_ids:
         if res in local_pool:
             global_tested_history.add(res)
 
 print("\n🏁 Full Spatial Edge Beam Search traversal completed.")
 print("✅ All Edge Anchors processed successfully.")
-
-'''
-Block Comment:
-Objective: Unify Diversity-Preserving Beam Search and Spatial Edge Expansion paradigms.
-Upstream Dependencies: complexa, pandas, scipy.spatial, internal_settings.json, csv
-Runtime Environment: Colab / Linux High-Performance GPU Workspace
-Timestamp: Auto-generated via Script execution.
-'''

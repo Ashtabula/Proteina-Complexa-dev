@@ -1,18 +1,10 @@
-# Cell_20_Deep_Greedy_Convergence_Loop.py
-# Requirements:
-# - Load the Hybrid Islands JSON manifest.
-# - Sort Hybrid Islands descending by baseline ipSAE score.
-# - Iterate through the sorted queue sequentially.
-# - For each island, generate 48 designs using complexa design.
-# - Greedy Convergence: KDTree (<4.5A) contribution. Drop worst 2 current, add best 2 neo-hotspots found.
-# - Termination loop per branch: Rollback if ipSAE drops. If rollback fails, mark converged, log Top 1, move to next.
-# - Do NOT global early-stop; process all islands.
-
 import os, sys, json, subprocess, time, datetime, re, shutil
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
+import yaml
+import random
 
 print("🌌 Initializing Cell 20: Deep Greedy Convergence Loop...")
 
@@ -92,31 +84,43 @@ env = os.environ.copy()
 env.update({'HYDRA_FULL_ERROR': '1', 'XLA_PYTHON_CLIENT_PREALLOCATE': 'false', 'PYTHONUNBUFFERED': '1'})
 yaml_path = BASE_DIR / 'configs/targets/targets_dict.yaml'
 
-def calculate_residue_contributions(pdb_path, active_list):
-    # KDTree (<4.5A) calculation for both active targets and entire surface
+def calculate_residue_contributions(pdb_path):
+    # ALL-ATOM KDTree Calculation & Gaussian Reward with Steric Penalty
     scores = {}
     if not pdb_path or not Path(pdb_path).exists(): return scores
     
     t_coords, b_coords = {}, []
     with open(pdb_path, 'r') as f:
         for line in f:
-            if line.startswith("ATOM") and line[12:16].strip() == "CA":
+            if line.startswith("ATOM"):
+                atom_name = line[12:16].strip()
+                if atom_name.startswith("H"): continue # Exclude Hydrogens
                 c, r, x, y, z = line[21], line[22:26].strip(), float(line[30:38]), float(line[38:46]), float(line[46:54])
                 if c == target_chains:
-                    t_coords[r] = [x, y, z]
+                    if r not in t_coords: t_coords[r] = []
+                    t_coords[r].append([x, y, z])
                 else:
                     b_coords.append([x, y, z])
                     
     if not b_coords: return scores
     b_tree = KDTree(b_coords)
     
-    for rid, coord in t_coords.items():
-        dists, _ = b_tree.query(coord, k=1)
-        if dists < 4.5:
-            scores[rid] = 1.0 / (dists + 0.1)
+    for rid, coords_list in t_coords.items():
+        min_dist = 999.0
+        for coord in coords_list:
+            dists, _ = b_tree.query(coord, k=1)
+            if dists < min_dist:
+                min_dist = dists
+                
+        if min_dist < 2.5:
+            scores[rid] = -2.0 # Steric Clash Penalty
+        else:
+            # Gaussian reward centered at 3.8A, sigma 1.5
+            scores[rid] = np.exp(-((min_dist - 3.8)**2) / (2 * 1.5**2))
+            
     return scores
 
-# --- 3. Deep Greedy Convergence Loop ---
+# --- 3. Deep Greedy Convergence Loop with SA ---
 SESSION_TIMESTAMP = datetime.datetime.now().strftime("Y%Y_M%m_D%d_H%H_M%M_S%S")
 
 for island_name, island_data in sorted_queue:
@@ -125,7 +129,9 @@ for island_name, island_data in sorted_queue:
     print(f"==================================================")
     
     active_hotspots = list(island_data['hybrid_hotspots'])
-    highest_ipsae_state = 0.0
+    highest_ipsae_state = -999.0
+    ultimate_best_score = -999.0
+    ultimate_best_hotspots = list(active_hotspots)
     stagnation_rollback_state = None
     iteration = 1
     
@@ -178,43 +184,59 @@ for island_name, island_data in sorted_queue:
         print(msg)
         sync_log(msg)
         
-        # --- 4. Rollback and Termination Logic ---
+        if current_max_score > ultimate_best_score:
+            ultimate_best_score = current_max_score
+            ultimate_best_hotspots = list(active_hotspots)
+        
+        # --- 4. Simulated Annealing, Rollback and Termination Logic ---
+        accepted_degradation = False
         if current_max_score < highest_ipsae_state:
-            msg = f"📉 Notice: Performance degraded from {highest_ipsae_state:.4f} to {current_max_score:.4f}."
-            print(msg)
-            sync_log(msg)
-            if stagnation_rollback_state and stagnation_rollback_state['tried_rollback']:
-                msg = f"🛑 Rollback recovery failed. {island_name} is marked as CONVERGED (Local Minima)."
+            # SA Logic
+            temp = max(0.01, 0.1 * (0.85 ** iteration))
+            acceptance_prob = np.exp((current_max_score - highest_ipsae_state) / temp)
+            
+            if random.random() < acceptance_prob:
+                msg = f"🔥 SA Accepted Degraded State: {current_max_score:.4f} < {highest_ipsae_state:.4f} (Prob: {acceptance_prob:.2%}, T: {temp:.4f})"
                 print(msg)
                 sync_log(msg)
-                print(f"🔒 Final Top State for {island_name} achieved ipSAE {highest_ipsae_state:.4f}")
-                # Store top structure logic goes here...
-                break 
-            
-            msg = "🔙 Triggering Rollback..."
-            print(msg)
-            sync_log(msg)
-            active_hotspots = stagnation_rollback_state['hotspots']
-            
-            # Alternative: drop 2 worst, add 3rd/4th best instead of 1st/2nd best.
-            all_scores = stagnation_rollback_state['scores']
-            neo = [r for r in all_scores.keys() if r not in active_hotspots]
-            neo_sorted = sorted(neo, key=lambda x: all_scores[x], reverse=True)
-            active_sorted = sorted(active_hotspots, key=lambda x: all_scores.get(x, 0), reverse=True)
-            
-            active_hotspots = active_sorted[:-2] if len(active_hotspots) > 2 else active_hotspots
-            active_hotspots.extend(neo_sorted[2:4]) # use alternative neo
-            
-            stagnation_rollback_state['tried_rollback'] = True
-            iteration += 1
-            print(f"🔀 Retrying loop with alternative configuration: {','.join(active_hotspots)}")
-            continue
+                accepted_degradation = True
+            else:
+                msg = f"📉 Performance degraded from {highest_ipsae_state:.4f} to {current_max_score:.4f}. SA Rejected (Prob: {acceptance_prob:.2%})."
+                print(msg)
+                sync_log(msg)
+                
+                if stagnation_rollback_state and stagnation_rollback_state['tried_rollback']:
+                    msg = f"🛑 Rollback recovery failed. {island_name} is marked as CONVERGED (Local Minima)."
+                    print(msg)
+                    sync_log(msg)
+                    print(f"🔒 Final Ultimate Top State for {island_name} achieved ipSAE {ultimate_best_score:.4f}")
+                    # In real code we would save ultimate_best_hotspots here
+                    break 
+                
+                msg = "🔙 Triggering Rollback..."
+                print(msg)
+                sync_log(msg)
+                active_hotspots = stagnation_rollback_state['hotspots']
+                
+                # Alternative: drop 2 worst, add 3rd/4th best instead of 1st/2nd best.
+                all_scores = stagnation_rollback_state['scores']
+                neo = [r for r in all_scores.keys() if r not in active_hotspots]
+                neo_sorted = sorted(neo, key=lambda x: all_scores[x], reverse=True)
+                active_sorted = sorted(active_hotspots, key=lambda x: all_scores.get(x, 0), reverse=True)
+                
+                active_hotspots = active_sorted[:-2] if len(active_hotspots) > 2 else active_hotspots
+                active_hotspots.extend(neo_sorted[2:4]) # use alternative neo
+                
+                stagnation_rollback_state['tried_rollback'] = True
+                iteration += 1
+                print(f"🔀 Retrying loop with alternative configuration: {','.join(active_hotspots)}")
+                continue
 
-        # Valid progress made
+        # Valid progress made or SA accepted
         highest_ipsae_state = current_max_score
         
         # --- 5. Greedy Convergence Modification ---
-        scores = calculate_residue_contributions(top_pdb, active_hotspots)
+        scores = calculate_residue_contributions(top_pdb)
         stagnation_rollback_state = {
             'hotspots': list(active_hotspots),
             'scores': scores,
@@ -241,11 +263,3 @@ for island_name, island_data in sorted_queue:
 
 print("\n🏁 Full Deep Greedy Convergence Loop traversal completed.")
 print("✅ All Hybrid Islands processed successfully.")
-
-'''
-Block Comment:
-Objective: Deep Greedy Convergence Loop iterating through Hybrid Island priorities.
-Upstream Dependencies: complexa, pandas, scipy.spatial, Cell_19 Output JSON
-Runtime Environment: Colab / Linux High-Performance GPU Workspace
-Timestamp: Auto-generated via Script execution.
-'''
