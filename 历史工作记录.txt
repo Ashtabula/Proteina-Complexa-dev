@@ -297,3 +297,26 @@
   2. 更新了 `历史工作记录.txt`，添加了最近几个关键轮次（GitHub拉取、架构审查、核心重构、热修复和本次推送）的详细开发日志。
   3. 执行 `git add` 和 `git commit` 将 `历史工作记录.txt` 的更新进行本地提交。
   4. 执行 `git push origin main` 将所有本地修改与提交完全推送到 GitHub 远程仓库 (`Geauga/Proteina-Complexa-dev`)，确保云端与本地完美同步。
+
+================================================================================
+[2026-05-28 09:58:36] Global Restart Feature & Code Review
+================================================================================
+[Prompt Details]
+User request:
+"重新review代码， 还是需要一个全局的restart， 这样可以开始一个新的run_id。 现在是不是用run_id来控制项目？ 20， 22， 24的单独restart仍然保留， 但是20,22, 24的restart不重置run_id， 我的观察对么？"
+Global log creation prompt:
+"生成一个历史工作记录.txt，以后每次更新后除了注释，github之外， 也在历史工作记录里详细记录做了什么， 包括时间，记录下prompts的细节，采用append方式，以及push github的时间线。。现在开始生成， 把以前的补上。 然后以后的工作都要append这个log。"
+
+[Work Done]
+1. Code Review:
+   - Verified that `run_id` is indeed used to control the active session and directories globally.
+   - Verified that local restarts for Cell 20, 22, 24, and evolution (e.g. `force_restart_section_7`, `force_restart_evo`) only reset specific sections and preserve the current `run_id`. User's observation is perfectly correct.
+2. Global Restart Implementation:
+   - Noticed that `force_restart_task` logic was present in Cell 2 (Backend logic) but absent from Cell 0 (Dashboard UI) due to a previous update.
+   - Patched `Proteina_Complexa_coLab.ipynb` Cell 0: Reintroduced `force_restart_task` under the Time Machine / Global Resume section. 
+   - Ensured `force_restart_task` is saved to `internal_settings.json` so that Cell 2 can read it. When enabled, it bypasses history checks and generates a brand new `run_id`.
+3. Work Log Setup:
+   - Updated the historical work log (`历史工作记录.txt`) according to the user's instructions for future tracking.
+
+[GitHub Timeline Placeholder]
+- (Pending) Code changes pushed to GitHub after verification.
