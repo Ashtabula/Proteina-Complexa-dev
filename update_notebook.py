@@ -168,6 +168,32 @@ def patch_stage_restart_cells(src):
     return src
 
 
+def patch_plddt_thresholds(src):
+    replacements = {
+        "pLDDT >= 0.40": "pLDDT > 0.70",
+        "pLDDT ≥ 0.40": "pLDDT > 0.70",
+        "pLDDT≥0.40": "pLDDT>0.70",
+        "pLDDT < 0.40": "pLDDT <= 0.70",
+        "pLDDT {champ_plddt:.2f} < 0.40": "pLDDT {champ_plddt:.2f} <= 0.70",
+        "df_scores['pLDDT'] >= 0.40": "df_scores['pLDDT'] > 0.70",
+        "float(d['pLDDT']) >= 0.40": "float(d['pLDDT']) > 0.70",
+        "df_upstream['pLDDT'] >= 0.40": "df_upstream['pLDDT'] > 0.70",
+        "c_data['pLDDT'] >= 0.40": "c_data['pLDDT'] > 0.70",
+        "float(c.get('pLDDT', 0)) >= 0.40": "float(c.get('pLDDT', 0)) > 0.70",
+        "if pld < 0.40:": "if pld <= 0.70:",
+        "elif pld < 0.55:": "elif pld < 0.85:",
+        "if champ_plddt < 0.40:": "if champ_plddt <= 0.70:",
+        "champ_plddt < 0.40": "champ_plddt <= 0.70",
+        "plddt_threshold: float = 0.40": "plddt_threshold: float = 0.70",
+        "pLDDT >= {plddt_threshold}": "pLDDT > {plddt_threshold}",
+        "df_clean['pLDDT'] >= plddt_threshold": "df_clean['pLDDT'] > plddt_threshold",
+        "Physical Threshold (0.4)": "Physical Threshold (0.7)",
+    }
+    for old, new in replacements.items():
+        src = src.replace(old, new)
+    return src
+
+
 def scrub_stale_output_text(value):
     if isinstance(value, str):
         return (
@@ -210,6 +236,8 @@ def patch_notebook(path):
             ]
         ):
             src = patch_stage_restart_cells(src)
+        if "pLDDT" in src or "plddt_threshold" in src:
+            src = patch_plddt_thresholds(src)
 
         cell["source"] = text_to_source(src)
         if "outputs" in cell:

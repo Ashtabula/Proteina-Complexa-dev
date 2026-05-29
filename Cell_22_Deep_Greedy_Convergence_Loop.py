@@ -185,7 +185,7 @@ def calculate_consensus_contributions(pdb_paths, target_chain, natural_order_lis
                     min_dist = dists
             
             plddt = target_plddts.get(nat_rid, 0.0)
-            if plddt >= 70.0:  # RAISED THRESHOLD to filter spaghetti
+            if plddt > 70.0:  # RAISED THRESHOLD to filter spaghetti
                 if min_dist < 2.5:
                     consensus[nat_rid] += -2.0 * (plddt / 100.0) # Steric Clash Penalty
                 else:

@@ -352,3 +352,26 @@ Global log creation prompt:
    - **Cell 11 (Section 2 - Target Preprocess)**:
      - 保持使用 `force_restart` 变量来决定是否生成全新的 `run_id`，从而保证全局维度的彻底重启逻辑依旧有效。
 3. 更新了本地 `历史工作记录.txt` 记录。
+
+================================================================================
+时间: 2026-05-29 08:12:00
+用户 Prompt:
+已按要求改完：把实际执行 notebook 里的 pLDDT 物理合规门槛从 0.40 提到严格 > 0.70。
+改动点：
+coLab/Proteina_Complexa_coLab.ipynb: Cell 20、Cell 22、Cell 24、Cell 25 分析单元里的 pLDDT 过滤/提示/图线都改为 > 0.70。
+Cell 24 的 balanced_score 也同步修正：<= 0.70 走强惩罚，0.70-0.85 走中间档，避免原来直接替换后 elif pld < 0.55 变成死代码。
+Cell_22_Deep_Greedy_Convergence_Loop.py: 独立脚本里 >= 70.0 改成严格 > 70.0。
+update_notebook.py: 加了可重复执行 of pLDDT threshold patch，之后跑脚本不会回退。
+我保留了 ipSAE > 0.40 和图里的 High Affinity Proxy (0.4)，因为那是亲和力阈值，不是 pLDDT 物理合规阈值。  检查一下有没有更改实装？
+
+操作记录:
+1. 编写并运行了 `check_plddt.py` 自动化检测脚本，深度检索了 `coLab/Proteina_Complexa_coLab.ipynb` 中的相关代码块。
+2. 经校验，确认 notebook 中的折叠可信度阈值判定均已实装完毕：
+   - 过滤条件与提示说明均已升级至严格 `> 0.70`，相应的图线图例亦完美匹配（如 `Physical Threshold (0.7)` 且保留了 `High Affinity Proxy (0.4)` 作为亲和力标识）。
+   - Cell 25（原 Cell 24 逻辑）中的 `balanced_score` 算法修正完全生效，实现了：
+     - `pld <= 0.70` 触发 `pld * 0.5` 强惩罚；
+     - `pld < 0.85` 走 `pld * 1.2` 中间过渡档；
+     - 其余更优者走 `pld * 2.5` 强收益。这彻底消除了 `elif pld < 0.55` 沦为死代码的隐患。
+3. 审查了独立执行脚本 `Cell_22_Deep_Greedy_Convergence_Loop.py`，确认第 188 行过滤条件已修正为严格 `if plddt > 70.0:`。
+4. 审查了 `update_notebook.py`，确认已成功集成包含上述高阶阈值的可重复替换 Patch 策略，保障后续执行自动对齐不回退。
+5. 更新了本地 `历史工作记录.txt` 记录。
